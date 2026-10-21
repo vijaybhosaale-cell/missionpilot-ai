@@ -1,9 +1,15 @@
 # Render Blueprint: New > Blueprint > choose this repository.
+# Free plan: the site sleeps when idle and the database is reset when the service restarts.
+# For permanent data: change plan to "starter" and add back:
+#    disk:
+#      name: data
+#      mountPath: /app/data
+#      sizeGB: 1
 services:
   - type: web
     name: missionpilot-ai
     runtime: docker
-    plan: starter            # a paid plan is needed for the persistent disk below
+    plan: free
     healthCheckPath: /healthz
     envVars:
       - key: SECRET_KEY
@@ -14,7 +20,3 @@ services:
         sync: false
       - key: ANTHROPIC_MODEL
         value: claude-sonnet-5-5
-    disk:
-      name: data
-      mountPath: /app/data
-      sizeGB: 1
