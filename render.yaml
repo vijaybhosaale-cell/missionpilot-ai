@@ -1,0 +1,20 @@
+# Render Blueprint: New > Blueprint > choose this repository.
+services:
+  - type: web
+    name: missionpilot-ai
+    runtime: docker
+    plan: starter            # a paid plan is needed for the persistent disk below
+    healthCheckPath: /healthz
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: HTTPS_ONLY
+        value: "1"
+      - key: ANTHROPIC_API_KEY   # optional — turns on Claude AI writing
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-5-5
+    disk:
+      name: data
+      mountPath: /app/data
+      sizeGB: 1
