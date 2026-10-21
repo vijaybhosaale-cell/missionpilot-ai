@@ -1,0 +1,59 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header %}
+{% block title %}{{ t('nav.settings') }}{% endblock %}
+{% block content %}
+{% call header(12, t('nav.settings'), t('settings.desc')) %}{% endcall %}
+{% if saved %}<div class="flash">✓ {{ t('settings.saved') }}</div>{% endif %}
+<form method="post" class="card" id="settings-form">
+  <h2>{{ t('settings.profile') }}</h2>
+  <div class="form-row"><div><label class="f" for="name">{{ t('auth.name') }}</label><input id="name" name="name" type="text" value="{{ user.name }}" style="width:100%"></div>
+  <div><label class="f">{{ t('auth.email') }}</label><input type="text" value="{{ user.email }}" disabled style="width:100%"></div></div>
+  <h2 style="margin-top:22px">{{ t('settings.languages') }}</h2>
+  <p class="muted small" style="margin-top:-6px">{{ t('settings.languages_help') }}</p>
+  <div class="form-row">
+    {% for f in ['interface_locale','ai_locale','doc_locale','report_locale'] %}
+    <div><label class="f" for="{{ f }}">{{ t('settings.' ~ f) }}</label>
+      <select id="{{ f }}" name="{{ f }}" style="width:100%">{% for c, n in locales %}<option value="{{ c }}" {{ 'selected' if c == (user[f] or L) else '' }}>{{ n }}</option>{% endfor %}</select></div>
+    {% endfor %}
+  </div>
+  <h2 style="margin-top:22px">{{ t('settings.formats') }}</h2>
+  <div class="form-row">
+    <div><label class="f" for="date_style">{{ t('settings.date_style') }}</label>
+      <select id="date_style" name="date_style" style="width:100%">{% for s in ['short','medium','long'] %}<option value="{{ s }}" {{ 'selected' if user.date_style == s else '' }}>{{ i18n.date('2026-10-21', L, s) }}</option>{% endfor %}</select></div>
+    <div><label class="f" for="time_zone">{{ t('settings.time_zone') }}</label><input id="time_zone" name="time_zone" type="text" value="{{ user.time_zone }}" style="width:100%"></div>
+    <div><label class="f" for="week_start">{{ t('settings.week_start') }}</label>
+      <select id="week_start" name="week_start" style="width:100%"><option value="0" {{ 'selected' if user.week_start == 0 else '' }}>{{ t('settings.monday') }}</option><option value="1" {{ 'selected' if user.week_start == 1 else '' }}>{{ t('settings.sunday') }}</option></select></div>
+  </div>
+  <p class="muted small">{{ t('settings.format_example', n=i18n.num(1234567.5, L, 2), money=i18n.money_minor(125050, 'EUR', L, True), pct=i18n.pct(80, L)) }}</p>
+  <h2 style="margin-top:22px">{{ t('settings.voice') }}</h2>
+  <div class="form-row">
+    <div><label style="display:flex;gap:8px;align-items:center;margin-top:30px"><input type="checkbox" name="voice_enabled" {{ 'checked' if user.voice_enabled else '' }}> {{ t('settings.voice_on') }}</label></div>
+    <div><label class="f" for="voice_name">{{ t('settings.voice_name') }}</label><select id="voice_name" name="voice_name" style="width:100%" data-current="{{ user.voice_name or '' }}"><option value="">{{ t('settings.voice_auto') }}</option></select></div>
+    <div><label class="f" for="voice_rate">{{ t('settings.voice_rate') }}</label>
+      <select id="voice_rate" name="voice_rate" style="width:100%">{% for r in [0.75, 1.0, 1.25] %}<option value="{{ r }}" {{ 'selected' if (user.voice_rate - r)|abs < 0.01 else '' }}>{{ r }}×</option>{% endfor %}</select></div>
+  </div>
+  <div class="actions" style="margin-top:10px"><button type="button" class="btn sm" onclick="MPvoice.test()">{{ icon('speaker') }}{{ t('settings.voice_test') }}</button><span class="muted small" id="voice-status"></span></div>
+  <h2 style="margin-top:22px">{{ t('settings.tour') }}</h2>
+  <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="restart_tour"> {{ t('settings.restart_tour') }}</label>
+  <div style="margin-top:18px"><button class="btn primary">{{ t('settings.save') }}</button></div>
+</form>
+<div class="grid g2">
+  <div class="card">
+    <h2>{{ t('settings.lang_status') }}</h2>
+    <table class="tbl"><thead><tr><th>{{ t('doc.f.language') }}</th><th class="num">{{ t('settings.coverage') }}</th><th>{{ t('settings.review') }}</th></tr></thead><tbody>
+    {% for c in coverage %}<tr><td lang="{{ c.code }}">{{ c.name }} <span class="muted small">({{ c.code }})</span></td><td class="num">{{ i18n.pct(c.pct, L) }}</td>
+      <td><span class="badge {{ 'b-green' if c.status in ('source','reviewed') else 'b-amber' }}">{{ t('settings.review_' ~ c.status) }}</span></td></tr>{% endfor %}
+    </tbody></table>
+    <p class="muted small">{{ t('settings.review_note') }}</p>
+  </div>
+  <div class="card">
+    <h2>{{ t('settings.system') }}</h2>
+    <table class="tbl"><tbody>
+      <tr><td>{{ t('settings.ai_engine') }}</td><td>{% if ai_model %}<span class="badge b-ai">✦ {{ ai_model }}</span>{% else %}<span class="badge">{{ t('app.engine_template') }}</span><div class="muted small">{{ t('settings.ai_howto') }}</div>{% endif %}</td></tr>
+      <tr><td>{{ t('settings.pdf_engine') }}</td><td>{% if pdf_error %}<span class="badge b-amber">{{ t('settings.pdf_fallback') }}</span>{% else %}<span class="badge b-green">Chromium</span>{% endif %}</td></tr>
+      <tr><td>{{ t('settings.missing') }}</td><td>{{ missing|length }}{% if missing %}<details><summary class="small">{{ t('settings.show') }}</summary><ul class="small">{% for m_ in missing %}<li><code>{{ m_.key }}</code> · {{ m_.locale }} · {{ m_.count }}</li>{% endfor %}</ul></details>{% endif %}</td></tr>
+    </tbody></table>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>MPvoice.fillSettings()</script>{% endblock %}

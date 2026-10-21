@@ -1,0 +1,49 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header, dl %}
+{% block title %}{{ t('nav.documents') }}{% endblock %}
+{% block content %}
+{% call header(10, t('nav.documents'), t('docs.desc')) %}
+  <a class="btn sm primary" href="/files/p/{{ pid }}/documents.zip?lang={{ out_loc }}" id="zip-all" data-dl>{{ icon('zip') }}{{ t('docs.download_all') }}</a>
+{% endcall %}
+<div class="card">
+  <div class="form-row">
+    <div><label class="f" for="out-lang">{{ t('docs.language') }}</label>
+      <select id="out-lang" style="width:100%" onchange="document.getElementById('zip-all').href='/files/p/{{ pid }}/documents.zip?lang='+this.value">{% for c, n in locales %}<option value="{{ c }}" {{ 'selected' if c == out_loc else '' }}>{{ n }}</option>{% endfor %}</select></div>
+    <div><label class="f">{{ t('docs.writer') }}</label>
+      {% if ai_on %}<label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="use-ai" checked> {{ t('docs.use_ai') }}</label>
+      {% else %}<div class="muted small" style="margin-top:8px">{{ t('docs.template_mode') }}</div>{% endif %}</div>
+  </div>
+  <p class="muted small" style="margin-bottom:0">{{ t('docs.zip_note') }}</p>
+</div>
+<div class="card" style="padding:0" id="doc-list">
+<div class="tbl-wrap"><table class="tbl">
+  <thead><tr><th>#</th><th>{{ t('doc.c.document') }}</th><th>{{ t('doc.c.owner') }}</th><th>{{ t('doc.c.due') }}</th><th>{{ t('doc.c.status') }}</th><th></th></tr></thead>
+  <tbody>
+  {% for r in register %}
+  <tr><td class="muted">{{ loop.index }}</td>
+    <td><b>{{ t('docname.' ~ r.type) }}</b><div class="muted small">{{ t('docpurpose.' ~ r.type) }}</div></td>
+    <td class="nowrap">{{ r.task.assignee if r.task else '—' }}</td>
+    <td class="nowrap">{{ i18n.short_date(r.task.end, L) if r.task else '—' }}</td>
+    <td><span class="badge b-{{ r.status }}">{{ t('status.' ~ r.status) }}</span></td>
+    <td class="nowrap">
+      <button class="btn sm primary" onclick="MPapp.generate('doc','{{ r.type }}')">{{ t('docs.generate') }}</button>
+      {% if r.last %}<a class="btn sm" href="/files/doc/{{ r.last.id }}.pdf" data-dl title="{{ i18n.LOCALES[r.last.locale].name }} v{{ r.last.version }}">{{ icon('pdf') }}PDF</a>
+      <a class="btn sm" href="/files/doc/{{ r.last.id }}.docx" data-dl title="{{ i18n.LOCALES[r.last.locale].name }} v{{ r.last.version }}">{{ icon('word') }}Word</a>
+      <button class="btn sm" onclick="MPapp.share({{ r.last.id }})" aria-label="{{ t('share.button') }}">{{ icon('share') }}</button>{% endif %}
+    </td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+<div class="card">
+  <h2>{{ t('docs.history') }}</h2>
+  {% if history %}
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>{{ t('doc.c.document') }}</th><th>{{ t('doc.f.language') }}</th><th>{{ t('doc.f.version') }}</th><th>{{ t('docs.writer') }}</th><th>{{ t('doc.f.date') }}</th><th></th></tr></thead><tbody>
+  {% for h in history %}
+  <tr><td><a href="/app/doc/{{ h.id }}">{{ t('docname.' ~ h.doc_type) }}</a></td><td>{{ i18n.LOCALES[h.locale].name }}</td><td>v{{ h.version }}</td>
+  <td>{% if h.engine == 'ai' %}<span class="badge b-ai">✦ Claude</span>{% else %}<span class="badge">{{ t('docs.template') }}</span>{% endif %}</td>
+  <td class="nowrap">{{ i18n.datetime(h.created_at[:19], L, 'short') }}</td>
+  <td class="nowrap"><a class="btn sm" href="/files/doc/{{ h.id }}.pdf" data-dl>{{ icon('pdf') }}PDF</a> <a class="btn sm" href="/files/doc/{{ h.id }}.docx" data-dl>{{ icon('word') }}Word</a> <button class="btn sm" onclick="MPapp.share({{ h.id }})">{{ icon('share') }}{{ t('share.button') }}</button></td></tr>
+  {% endfor %}</tbody></table></div>
+  {% else %}<p class="muted">{{ t('docs.no_history') }}</p>{% endif %}
+</div>
+{% endblock %}

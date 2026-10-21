@@ -1,0 +1,55 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header %}
+{% block title %}{{ d.project.display_name }}{% endblock %}
+{% block content %}
+{% if created %}<div class="flash">✓ {{ t('home.created', n=m.tasks_total) }}</div>{% endif %}
+{% call header(1, d.project.display_name, t('home.desc'), 'home-head') %}
+  <span class="health {{ m.health }}" title="{{ t('health.help') }}"><i></i>{{ t('health.' ~ m.health) }}</span>
+  <a class="btn sm" href="/app/p/{{ pid }}/documents">{{ icon('doc') }}{{ t('home.go_docs') }}</a>
+  <a class="btn sm" href="/app/p/{{ pid }}/gantt">{{ icon('gantt') }}{{ t('nav.gantt') }}</a>
+{% endcall %}
+{% if d.project.display_description %}<p class="muted" style="margin-top:-8px">{{ d.project.display_description }}</p>{% endif %}
+<div class="kpis" id="kpis">
+  <div class="kpi {{ 'good' if m.variance_pts >= -2 else ('warn' if m.variance_pts > -10 else 'bad') }}"><div class="l">{{ t('kpi.progress') }}</div><div class="v">{{ i18n.pct(m.progress, L) }}</div><div class="s">{{ t('kpi.planned_today', v=i18n.pct(m.planned, L)) }}</div></div>
+  <div class="kpi"><div class="l">{{ t('kpi.tasks_done') }}</div><div class="v">{{ i18n.num(m.tasks_done, L) }} / {{ i18n.num(m.tasks_total, L) }}</div><div class="s">{{ t('kpi.active_n', n=m.tasks_active) }}</div></div>
+  <div class="kpi {{ 'bad' if m.overdue|length else 'good' }}"><div class="l">{{ t('kpi.overdue') }}</div><div class="v">{{ i18n.num(m.overdue|length, L) }}</div><div class="s">{{ t('kpi.due_week_n', n=m.due_week|length) }}</div></div>
+  <div class="kpi"><div class="l">{{ t('kpi.work_left') }}</div><div class="v">{{ t('common.days_short', n=i18n.num(m.days_left, L, 1)) }}</div><div class="s">{{ t('kpi.work_done', v=i18n.num(m.days_done, L, 1)) }}</div></div>
+  <div class="kpi {{ 'bad' if m.cpi and m.cpi < 0.9 else '' }}"><div class="l">{{ t('kpi.budget_used') }}</div><div class="v">{{ i18n.money_minor(m.budget_actual, d.project.currency, L) }}</div><div class="s">{{ t('kpi.of_total', v=i18n.money_minor(m.budget_planned, d.project.currency, L)) }}</div></div>
+  <div class="kpi"><div class="l">{{ t('kpi.end_date') }}</div><div class="v" style="font-size:19px">{{ i18n.date(d.project.end_date, L) }}</div><div class="s">{{ t('kpi.workdays_left', n=m.days_to_end) }}</div></div>
+</div>
+<div class="card"><h2>{{ t('home.status_mix') }}</h2><div class="chart fit">{{ status_svg|safe }}</div></div>
+<div class="grid g2">
+  <div class="card" id="home-progress">
+    <h2>{{ t('home.active_tasks') }} <span class="muted">{{ t('home.active_tasks_help') }}</span></h2>
+    {% if bars %}<div class="chart fit">{{ bars|safe }}</div>{% else %}<div class="empty">{{ t('home.no_active') }}</div>{% endif %}
+    <a href="/app/p/{{ pid }}/progress">{{ t('home.see_progress') }} →</a>
+  </div>
+  <div class="card">
+    <h2>{{ t('progress.scurve_title') }}</h2>
+    <div class="chart fit">{{ scurve|safe }}</div>
+  </div>
+</div>
+<div class="grid g2">
+  <div class="card">
+    <h2>{{ t('home.milestones') }}</h2>
+    <table class="tbl"><tbody>
+      {% for t_ in d.tasks if t_.milestone %}
+      <tr><td>◆ {{ t_.title }}</td><td class="nowrap">{{ i18n.date(t_.end, L) }}</td>
+      <td>{% set st = 'done' if t_.progress >= 100 else ('overdue' if t_.end < m.today else 'todo') %}<span class="badge b-{{ st }}">{{ t('status.' ~ st) }}</span></td></tr>
+      {% endfor %}
+    </tbody></table>
+  </div>
+  <div class="card">
+    <h2>{{ t('home.recent') }}</h2>
+    {% if recent %}
+    <table class="tbl"><tbody>
+      {% for a in recent %}
+      <tr><td class="nowrap muted small">{{ i18n.datetime(a.at[:19], L, 'short') }}</td>
+      <td>{% if a.kind == 'progress' and a.task %}{{ t('home.act_progress', task=a.task.title, old=i18n.pct(a.old|int, L), new=i18n.pct(a.new|int, L)) }}
+          {% elif a.kind == 'created' %}{{ t('home.act_created') }}{% elif a.kind == 'budget' %}{{ t('home.act_budget', cat=t('budget.' ~ a.new)) }}{% else %}{{ a.kind }}{% endif %}</td></tr>
+      {% endfor %}
+    </tbody></table>
+    {% else %}<div class="empty">{{ t('home.no_activity') }}</div>{% endif %}
+  </div>
+</div>
+{% endblock %}

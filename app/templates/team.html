@@ -1,0 +1,30 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header, dl %}
+{% block title %}{{ t('nav.team') }}{% endblock %}
+{% block content %}
+{% call header(8, t('nav.team'), t('team.desc')) %}
+  {{ dl('/files/p/' ~ pid ~ '/team.xlsx?lang=' ~ L, t('dl.excel'), 'xls') }}
+  <button class="btn sm" onclick="MPapp.generate('report','workload')">{{ icon('pdf') }}{{ t('team.report_btn') }}</button>
+{% endcall %}
+<div class="card" style="padding:0"><div class="tbl-wrap">
+<table class="tbl">
+  <thead><tr><th>#</th><th>{{ t('doc.c.member') }}</th><th>{{ t('doc.c.role') }}</th><th>{{ t('team.email') }}</th><th class="num">{{ t('doc.c.tasks') }}</th><th class="num">{{ t('report.c.hours') }}</th><th class="num">{{ t('team.capacity') }}</th></tr></thead>
+  <tbody>
+  {% for r in wl.rows %}{% set mm = r.member %}
+  <tr><td class="muted">{{ mm.seq }}</td>
+    <td><input type="text" value="{{ mm.name }}" onchange="MPapp.setMember({{ mm.id }}, {name:this.value})" aria-label="{{ t('doc.c.member') }}" style="width:180px"></td>
+    <td>{{ mm.role }}</td>
+    <td><input type="email" value="{{ mm.email }}" placeholder="name@company.com" onchange="MPapp.setMember({{ mm.id }}, {email:this.value})" aria-label="{{ t('team.email') }}" style="width:200px"></td>
+    <td class="num">{{ d.tasks|selectattr('assignee_id','equalto',mm.id)|rejectattr('milestone')|list|length }}</td>
+    <td class="num">{{ i18n.num(r.total, L) }}</td>
+    <td class="num"><select onchange="MPapp.setMember({{ mm.id }}, {capacity:this.value})" aria-label="{{ t('team.capacity') }}">{% for c in [100,80,60,50,40,20] %}<option value="{{ c }}" {{ 'selected' if mm.capacity == c else '' }}>{{ c }}%</option>{% endfor %}</select></td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+<div class="card" id="resource-chart"><h2>{{ t('team.heatmap_title') }} <span class="muted">{{ t('team.heatmap_help') }}</span></h2><div class="chart">{{ heat|safe }}</div></div>
+<div class="card"><h2>{{ t('team.overload') }}</h2>
+  {% if over %}<ul>{% for mm, w, h in over[:15] %}<li>{{ t('team.overload_line', name=mm.name, week=i18n.short_date(w, L), h=h) }}</li>{% endfor %}</ul>
+  <p class="muted small">{{ t('team.overload_fix') }}</p>
+  {% else %}<p class="muted">{{ t('team.no_overload') }}</p>{% endif %}
+</div>
+{% endblock %}

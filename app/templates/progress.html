@@ -1,0 +1,91 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header, dl, legend %}
+{% block title %}{{ t('nav.progress') }}{% endblock %}
+{% block content %}
+{% call header(5, t('nav.progress'), t('progress.desc')) %}
+  {{ dl('/files/p/' ~ pid ~ '/progress.pdf?lang=' ~ L, t('dl.pdf'), 'pdf') }}
+  {{ dl('/files/p/' ~ pid ~ '/tasks.xlsx?lang=' ~ L, t('dl.excel'), 'xls') }}
+  {% if today_day %}<span class="badge b-blue" style="font-size:13px;padding:4px 12px">📅 {{ t('progress.day_of', n=today_day, total=total_wd) }}</span>{% endif %}
+{% endcall %}
+{{ legend(t) }}
+<div class="kpis">
+  <div class="kpi good"><div class="l">{{ t('progress.legend_done') }}</div><div class="v">{{ i18n.pct(m.progress, L) }}</div><div class="s">{{ t('common.days_short', n=i18n.num(m.days_done, L, 1)) }}</div></div>
+  <div class="kpi warn"><div class="l">{{ t('progress.legend_left') }}</div><div class="v">{{ i18n.pct(100 - m.progress, L) }}</div><div class="s">{{ t('common.days_short', n=i18n.num(m.days_left, L, 1)) }}</div></div>
+  <div class="kpi"><div class="l">{{ t('progress.planned') }}</div><div class="v">{{ i18n.pct(m.planned, L) }}</div><div class="s">{{ t('progress.variance', v=i18n.num(m.variance_pts, L, 1)) }}</div></div>
+  <div class="kpi" style="border-top:3px solid var(--st-in_progress)"><div class="l">{{ t('progress.ongoing') }}</div><div class="v">{{ i18n.num(ongoing|length, L) }}</div></div>
+  <div class="kpi" style="border-top:3px solid var(--st-done)"><div class="l">{{ t('progress.completed') }}</div><div class="v">{{ i18n.num(completed|length, L) }}</div></div>
+  <div class="kpi {{ 'bad' if overdue|length else 'good' }}" style="border-top:3px solid var(--st-overdue)"><div class="l">{{ t('kpi.overdue') }}</div><div class="v">{{ i18n.num(overdue|length, L) }}</div></div>
+</div>
+<div class="card"><h2>{{ t('progress.overall') }} <span class="muted">{{ t('progress.overall_help') }}</span></h2><div class="chart fit">{{ overall|safe }}</div>
+  <div class="chart fit" style="margin-top:10px">{{ status_svg|safe }}</div></div>
+
+<div class="card" id="burndown"><h2>{{ t('progress.burndown_title') }} <span class="muted">{{ t('progress.burndown_help') }}</span></h2>
+  {% if burndown %}
+  <div class="bd-pick">
+    <label class="f" for="bd-day" style="margin:0">{{ t('progress.pick_day') }}</label>
+    <input type="range" id="bd-day" min="1" max="{{ total_wd }}" value="{{ today_day or 1 }}" aria-label="{{ t('progress.pick_day') }}">
+    <span class="muted small">{{ t('progress.day_n', n='') }}</span><input type="number" id="bd-daynum" min="1" max="{{ total_wd }}" value="{{ today_day or 1 }}" style="width:80px" aria-label="{{ t('progress.day_col') }}">
+    <span class="muted small">{{ t('progress.or_date') }}</span><input type="date" id="bd-date" aria-label="{{ t('doc.c.date') }}">
+    <button class="btn sm" type="button" id="bd-today">{{ t('gantt.today') }}</button>
+  </div>
+  <div class="chart fit">{{ burndown|safe }}</div>
+  <div class="bd-summary" id="bd-summary" aria-live="polite"></div>
+  <div class="grid g2" style="margin-top:10px">
+    <div><h3 class="bd-h"><span class="dot" style="background:var(--st-done)"></span><span id="bd-done-h"></span></h3><ul class="bd-list" id="bd-done"></ul></div>
+    <div><h3 class="bd-h"><span class="dot" style="background:var(--st-todo)"></span><span id="bd-left-h"></span></h3><ul class="bd-list" id="bd-left"></ul></div>
+  </div>
+  <script>window.MPBD = {{ bd_json|safe }};</script>
+  {% else %}<p class="muted">{{ t('report.none') }}</p>{% endif %}
+</div>
+
+<div class="grid g2">
+  <div class="card">
+    <h2><span class="dot" style="background:var(--st-in_progress)"></span>{{ t('progress.ongoing') }} <span class="muted">{{ i18n.num(ongoing|length, L) }}</span></h2>
+    {% if ongoing %}<table class="tbl"><thead><tr><th>{{ t('gantt.col_task') }}</th><th>{{ t('gantt.col_resource') }}</th><th>{{ t('gantt.col_end') }}</th><th>{{ t('tasks.progress_col') }}</th></tr></thead><tbody>
+    {% for x in ongoing %}<tr class="st-row st-{{ 'overdue' if x.end < m.today else x.status }}">
+      <td><span class="pdot p-{{ x.priority }}" title="{{ t('priority.' ~ x.priority) }}"></span>{{ x.title }}{% if x.priority in ['critical','high'] %} <span class="badge b-{{ x.priority }}">{{ t('priority.' ~ x.priority) }}</span>{% endif %}</td>
+      <td class="nowrap">{{ x.assignee }}</td><td class="nowrap">{{ i18n.short_date(x.end, L) }}</td>
+      <td style="min-width:150px"><div class="mini-bar"><span style="width:{{ x.progress }}%"></span></div>
+        <div class="small"><b style="color:var(--st-done)">{{ i18n.pct(x.progress, L) }}</b> · <span class="muted">{{ t('progress.left_label', pct=i18n.pct(100 - x.progress, L), days=t('common.days_short', n=i18n.num(x.left_days, L, 1))) }}</span></div></td></tr>
+    {% endfor %}</tbody></table>
+    {% else %}<p class="muted">{{ t('report.none') }}</p>{% endif %}
+  </div>
+  <div class="card">
+    <h2><span class="dot" style="background:var(--st-done)"></span>{{ t('progress.completed') }} <span class="muted">{{ i18n.num(completed|length, L) }}</span></h2>
+    {% if completed %}<div style="max-height:420px;overflow:auto"><table class="tbl"><thead><tr><th>{{ t('gantt.col_task') }}</th><th>{{ t('gantt.col_resource') }}</th><th>{{ t('progress.finished_on') }}</th><th>{{ t('progress.day_col') }}</th><th>{{ t('progress.on_time') }}</th></tr></thead><tbody>
+    {% for x in completed %}<tr class="st-row st-done"><td>✓ {{ x.title }}</td><td class="nowrap">{{ x.assignee }}</td><td class="nowrap">{{ i18n.short_date(x.finished, L) }}</td><td class="nowrap">{{ t('progress.day_n', n=x.day) }}</td>
+      <td>{% if x.finished <= x.end %}<span class="badge b-green">{{ t('progress.on_time_yes') }}</span>{% else %}<span class="badge b-amber">{{ t('progress.on_time_late') }}</span>{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div>
+    {% else %}<p class="muted">{{ t('report.none') }}</p>{% endif %}
+  </div>
+</div>
+
+<div class="card"><h2>{{ t('progress.weekly_title') }} <span class="muted">{{ t('progress.weekly_help') }}</span></h2><div class="chart fit">{{ weekly|safe }}</div></div>
+
+<div class="card" id="progress-chart">
+  <h2>{{ t('progress.by_task') }} <span class="muted">{{ t('progress.by_task_help') }}</span></h2>
+  <div class="actions" style="margin-bottom:10px">
+    {% for k in ['active','overdue','done','all'] %}<a class="btn sm {{ 'primary' if f == k else '' }}" href="?f={{ k }}#progress-chart">{{ t('progress.f_' ~ k) }}</a>{% endfor %}
+  </div>
+  {% if bars %}<div class="chart fit">{{ bars|safe }}</div>{% else %}<div class="empty">{{ t('report.none') }}</div>{% endif %}
+</div>
+
+<div class="grid g2">
+  <div class="card">
+    <h2><span class="dot" style="background:var(--st-overdue)"></span>{{ t('kpi.overdue') }} <span class="muted">{{ i18n.num(overdue|length, L) }}</span></h2>
+    {% if overdue %}<table class="tbl"><tbody>{% for x in overdue %}<tr class="st-row st-overdue"><td><span class="pdot p-{{ x.priority }}"></span>{{ x.title }}</td><td class="nowrap">{{ x.assignee }}</td><td class="nowrap">{{ i18n.short_date(x.end, L) }}</td><td class="num">{{ i18n.pct(x.progress, L) }}</td></tr>{% endfor %}</tbody></table>
+    {% else %}<p class="muted">✓ {{ t('report.none_missed') }}</p>{% endif %}
+  </div>
+  <div class="card">
+    <h2><span class="dot" style="background:var(--st-todo)"></span>{{ t('progress.upcoming') }} <span class="muted">{{ i18n.num(upcoming|length, L) }}</span></h2>
+    {% if upcoming %}<div style="max-height:360px;overflow:auto"><table class="tbl"><tbody>{% for x in upcoming[:20] %}<tr class="st-row st-todo"><td><span class="pdot p-{{ x.priority }}"></span>{{ x.title }}</td><td class="nowrap">{{ x.assignee }}</td><td class="nowrap">{{ i18n.short_date(x.start, L) }}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="muted">{{ t('report.none') }}</p>{% endif %}
+  </div>
+</div>
+
+<div class="grid g2">
+  <div class="card"><h2>{{ t('progress.by_phase') }}</h2><div class="chart fit">{{ phase_bars|safe }}</div></div>
+  <div class="card"><h2>{{ t('progress.scurve_title') }}</h2><div class="chart fit">{{ scurve|safe }}</div></div>
+</div>
+{% endblock %}
+{% block scripts %}<script>MPburn.init()</script>{% endblock %}

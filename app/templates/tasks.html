@@ -1,0 +1,66 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header, trflag, dl, legend %}
+{% block title %}{{ t('nav.tasks') }}{% endblock %}
+{% block content %}
+{% call header(3, t('nav.tasks'), t('tasks.desc')) %}
+  {{ dl('/files/p/' ~ pid ~ '/tasks.xlsx?lang=' ~ L, t('dl.excel'), 'xls') }}
+{% endcall %}
+{{ legend(t) }}
+<div class="actions" style="margin-bottom:14px">
+  <div class="dl-group" role="group" aria-label="{{ t('tasks.view') }}">
+    <a class="btn sm {{ 'primary' if view == 'list' else '' }}" href="?view=list&f={{ f }}">{{ t('tasks.list') }}</a>
+    <a class="btn sm {{ 'primary' if view == 'board' else '' }}" href="?view=board&f={{ f }}">{{ t('tasks.board') }}</a>
+  </div>
+  <span style="width:10px"></span>
+  {% for k in ['all','active','week','overdue'] %}<a class="btn sm {{ 'primary' if f == k else '' }}" href="?view={{ view }}&f={{ k }}">{{ t('tasks.f_' ~ k) }}</a>{% endfor %}
+  {% if can_translate %}<button class="btn sm" onclick="MPapp.translateProject()">✦ {{ t('tasks.translate', lang=info.name) }}</button>{% endif %}
+</div>
+{% if view == 'board' %}
+<div class="kanban" id="task-table">
+  {% for st in ['todo','in_progress','blocked','done'] %}
+  <div class="kcol"><h3><span>{{ t('status.' ~ st) }}</span><span class="muted">{{ tasks|selectattr('status','equalto',st)|rejectattr('milestone')|list|length }}</span></h3>
+    {% for x in tasks if x.status == st and not x.milestone %}
+    <div class="kcard st-{{ 'overdue' if x.end < d.metrics.today and x.progress < 100 else x.status }} pr-{{ x.priority }}" data-task="{{ x.id }}">
+      <div><span class="pdot p-{{ x.priority }}" title="{{ t('priority.' ~ x.priority) }}"></span><b>{{ x.wbs }}</b> {{ x.title }}{{ trflag(x.tr_state, t) }}</div>
+      <div class="meta"><span>{{ x.assignee }}</span>·<span>{{ i18n.short_date(x.end, L) }}</span><span class="badge b-{{ x.priority }}">{{ t('priority.' ~ x.priority) }}</span></div>
+      <div class="mini-bar" style="margin-top:6px"><span style="width:{{ x.progress }}%"></span></div>
+      <div class="meta">{{ t('progress.done_label', pct=i18n.pct(x.progress, L), days=t('common.days_short', n=i18n.num(x.done_days, L, 1))) }} · {{ t('progress.left_label', pct=i18n.pct(100 - x.progress, L), days=t('common.days_short', n=i18n.num(x.left_days, L, 1))) }}</div>
+      <div class="mv">{% for to in ['todo','in_progress','blocked','done'] if to != st %}<button class="btn sm" onclick="MPapp.setStatus({{ x.id }}, '{{ to }}')">→ {{ t('status.' ~ to) }}</button>{% endfor %}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="padding:0">
+<div class="tbl-wrap" id="task-table">
+<table class="tbl">
+  <thead><tr><th>{{ t('gantt.col_wbs') }}</th><th>{{ t('gantt.col_task') }}</th><th>{{ t('gantt.col_resource') }}</th><th>{{ t('gantt.col_start') }}</th><th>{{ t('gantt.col_end') }}</th><th class="num">{{ t('gantt.col_days') }}</th><th>{{ t('tasks.progress_col') }}</th><th>{{ t('doc.c.status') }}</th><th>{{ t('doc.c.priority') }}</th></tr></thead>
+  <tbody>
+  {% for ph in d.phases %}{% set pts = tasks|selectattr('phase_id','equalto',ph.id)|list %}{% if pts %}
+    <tr class="phase"><td>{{ ph.seq }}</td><td colspan="8">{{ ph.name }}</td></tr>
+    {% for x in pts %}
+    <tr class="st-row st-{{ 'overdue' if x.end < d.metrics.today and x.progress < 100 else x.status }}" data-task="{{ x.id }}">
+      <td class="muted">{{ x.wbs }}</td>
+      <td><span class="pdot p-{{ x.priority }}" title="{{ t('priority.' ~ x.priority) }}"></span>{% if x.milestone %}◆ {% endif %}{% if x.priority in ['critical','high'] %}<b>{{ x.title }}</b>{% else %}{{ x.title }}{% endif %}{{ trflag(x.tr_state, t) }}{% if x.id in d.metrics.critical and x.progress < 100 %} <span class="badge b-red" title="{{ t('gantt.legend_critical_help') }}">{{ t('gantt.critical_short') }}</span>{% endif %}
+        {% if x.desc %}<div class="muted small">{{ x.desc }}</div>{% endif %}</td>
+      <td class="nowrap">{{ x.assignee }}</td>
+      <td class="nowrap">{{ i18n.short_date(x.start, L) }}</td>
+      <td class="nowrap"><input type="date" value="{{ x.end }}" onchange="MPapp.setEnd({{ x.id }}, this.value)" aria-label="{{ t('gantt.col_end') }}" style="padding:4px 6px"></td>
+      <td class="num">{{ i18n.num(x.days, L) }}</td>
+      <td><div class="prog-cell"><input type="range" min="0" max="100" step="10" value="{{ x.progress }}" aria-label="{{ t('tasks.progress_col') }}"
+           oninput="this.nextElementSibling.value=this.value+'%'" onchange="MPapp.setProgress({{ x.id }}, this.value, this)"><output>{{ x.progress }}%</output></div>
+          <div class="muted small">{{ t('progress.left_label', pct=i18n.pct(100 - x.progress, L), days=t('common.days_short', n=i18n.num(x.left_days, L, 1))) }}</div></td>
+      <td><select onchange="MPapp.setStatus({{ x.id }}, this.value)" aria-label="{{ t('doc.c.status') }}">{% for st in ['todo','in_progress','blocked','done'] %}<option value="{{ st }}" {{ 'selected' if x.status == st else '' }}>{{ t('status.' ~ st) }}</option>{% endfor %}</select></td>
+      <td><span class="badge b-{{ x.priority }}">{{ t('priority.' ~ x.priority) }}</span></td>
+    </tr>
+    {% endfor %}
+  {% endif %}{% endfor %}
+  {% if not tasks %}<tr><td colspan="9" class="empty">{{ t('tasks.none') }}</td></tr>{% endif %}
+  </tbody>
+</table>
+</div>
+</div>
+<p class="muted small">{{ t('tasks.reschedule_note') }}</p>
+{% endif %}
+{% endblock %}

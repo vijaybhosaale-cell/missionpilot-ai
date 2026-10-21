@@ -1,0 +1,27 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header %}
+{% block title %}{{ t('nav.assistant') }}{% endblock %}
+{% block content %}
+{% call header(11, t('nav.assistant'), t('assistant.desc')) %}
+  <label class="small muted" for="out-lang">{{ t('assistant.reply_in') }}</label>
+  <select id="out-lang">{% for c, n in locales %}<option value="{{ c }}" {{ 'selected' if c == out_loc else '' }}>{{ n }}</option>{% endfor %}</select>
+{% endcall %}
+{% if not ai_on %}<div class="warnbox">{{ t('assistant.local_banner') }}</div>{% endif %}
+<div class="card">
+  <div class="chat" id="chat" aria-live="polite">
+    {% if not msgs %}<div class="msg assistant">{{ t('assistant.hello', project=d.project.display_name) }}</div>{% endif %}
+    {% for msg in msgs %}<div class="msg {{ msg.role }}" dir="auto">{{ msg.content }}</div>{% endfor %}
+  </div>
+  <div class="examples" style="justify-content:flex-start">
+    {% for e in examples %}<button type="button" data-ask="{{ e }}">{{ e }}</button>{% endfor %}
+  </div>
+  <div class="chat-input">
+    <button class="mic" id="chat-mic" type="button" title="{{ t('voice.mic') }}" aria-label="{{ t('voice.mic') }}">{{ icon('mic') }}</button>
+    <label class="sr" for="chat-input">{{ t('assistant.placeholder') }}</label>
+    <textarea id="chat-input" placeholder="{{ t('assistant.placeholder') }}" dir="auto"></textarea>
+    <button class="send" id="chat-send" type="button" aria-label="{{ t('new.send') }}">{{ icon('send') }}</button>
+  </div>
+  <p class="muted small" style="margin-bottom:0">{{ t('assistant.mic_note') }}</p>
+</div>
+{% endblock %}
+{% block scripts %}<script>MPchat.init()</script>{% endblock %}

@@ -1,0 +1,34 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header %}
+{% block title %}{{ t('nav.reports') }}{% endblock %}
+{% block content %}
+{% call header(9, t('nav.reports'), t('reports.desc')) %}{% endcall %}
+<div class="card">
+  <div class="form-row">
+    <div><label class="f" for="out-lang">{{ t('reports.language') }}</label>
+      <select id="out-lang" style="width:100%">{% for c, n in locales %}<option value="{{ c }}" {{ 'selected' if c == out_loc else '' }}>{{ n }}</option>{% endfor %}</select></div>
+    <div><label class="f" for="rep-date">{{ t('reports.date') }}</label><input id="rep-date" type="date" value="{{ today }}" style="width:100%"></div>
+  </div>
+  <p class="muted small" style="margin-bottom:0">{{ t('reports.lang_note') }}</p>
+</div>
+<div class="grid g3" id="report-list">
+  {% for r in types %}
+  <div class="card">
+    <h2>{{ t('reportname.' ~ r) }}</h2>
+    <p class="muted small" style="min-height:40px">{{ t('reportdesc.' ~ r) }}</p>
+    <button class="btn primary sm" onclick="MPapp.generate('report','{{ r }}')">{{ t('reports.generate') }}</button>
+  </div>
+  {% endfor %}
+</div>
+<div class="card">
+  <h2>{{ t('reports.history') }}</h2>
+  {% if history %}
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>{{ t('doc.c.document') }}</th><th>{{ t('doc.f.language') }}</th><th>{{ t('doc.f.version') }}</th><th>{{ t('doc.f.date') }}</th><th></th></tr></thead><tbody>
+  {% for h in history %}
+  <tr><td><a href="/app/doc/{{ h.id }}">{{ t('reportname.' ~ h.doc_type) }}</a></td><td>{{ i18n.LOCALES[h.locale].name }}</td><td>v{{ h.version }}</td>
+  <td class="nowrap">{{ i18n.datetime(h.created_at[:19], L, 'short') }}</td>
+  <td class="nowrap"><a class="btn sm" href="/files/doc/{{ h.id }}.pdf" data-dl>{{ icon('pdf') }}PDF</a> <a class="btn sm" href="/files/doc/{{ h.id }}.docx" data-dl>{{ icon('word') }}Word</a> <button class="btn sm" onclick="MPapp.share({{ h.id }})">{{ icon('share') }}{{ t('share.button') }}</button></td></tr>
+  {% endfor %}</tbody></table></div>
+  {% else %}<p class="muted">{{ t('reports.no_history') }}</p>{% endif %}
+</div>
+{% endblock %}

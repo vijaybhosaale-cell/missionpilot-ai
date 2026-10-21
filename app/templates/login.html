@@ -1,0 +1,30 @@
+{% extends "base_public.html" %}
+{% block title %}{{ t('auth.login' if mode == 'login' else 'auth.signup') }} · MissionPilot AI{% endblock %}
+{% block content %}
+<div class="auth">
+  <div class="card">
+    <h1 style="font-size:22px;margin-bottom:6px">{{ t('auth.login_title' if mode == 'login' else 'auth.signup_title') }}</h1>
+    <p class="muted" style="margin-top:0">{{ t('auth.login_sub' if mode == 'login' else 'auth.signup_sub') }}</p>
+    {% if error %}<div class="warnbox" role="alert">{{ error }}</div>{% endif %}
+    <form method="post">
+      {% if mode == 'register' %}
+      <label class="f" for="name">{{ t('auth.name') }}</label><input id="name" name="name" type="text" required autocomplete="name">
+      {% endif %}
+      <label class="f" for="email">{{ t('auth.email') }}</label><input id="email" name="email" type="email" required autocomplete="email">
+      <label class="f" for="password">{{ t('auth.password') }}</label>
+      <input id="password" name="password" type="password" required minlength="{{ 8 if mode == 'register' else 1 }}" autocomplete="{{ 'current-password' if mode == 'login' else 'new-password' }}">
+      {% if mode == 'register' %}
+      <div class="muted small" style="margin-top:4px">{{ t('auth.password_rule') }}</div>
+      <label class="f" for="lang">{{ t('settings.interface_locale') }}</label>
+      <select id="lang" name="lang" style="width:100%">{% for c, n in locales %}<option value="{{ c }}" {{ 'selected' if c == L else '' }}>{{ n }}</option>{% endfor %}</select>
+      {% endif %}
+      <button class="btn primary" style="width:100%;margin-top:18px;padding:11px">{{ t('auth.login' if mode == 'login' else 'auth.create_account') }}</button>
+    </form>
+    <p class="small" style="text-align:center;margin-top:16px">
+      {% if mode == 'login' %}{{ t('auth.no_account') }} <a href="/register">{{ t('auth.signup') }}</a>
+      {% else %}{{ t('auth.have_account') }} <a href="/login">{{ t('auth.login') }}</a>{% endif %}
+      · <a href="/demo?lang={{ L }}">{{ t('landing.try_demo') }}</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

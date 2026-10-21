@@ -1,0 +1,37 @@
+{% extends "base_public.html" %}
+{% block topright %}
+  {% if user %}<a class="btn primary" href="/app">{{ t('landing.open_app') }}</a>
+  {% else %}<a class="btn" href="/login">{{ t('auth.login') }}</a><a class="btn primary" href="/register">{{ t('auth.signup') }}</a>{% endif %}
+{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h1>{{ t('landing.title') }}</h1>
+    <p class="lead">{{ t('landing.lead') }}</p>
+    <div class="cta">
+      <a class="btn primary" href="/demo?lang={{ L }}" id="try-demo">▶ {{ t('landing.try_demo') }}</a>
+      <a class="btn" href="/register?lang={{ L }}">{{ t('landing.start_free') }}</a>
+    </div>
+    <p class="muted small" style="margin-top:14px">{{ t('landing.langs_note') }}</p>
+    <div class="lang-row">{% for c, n in locales %}<a href="?lang={{ c }}" lang="{{ c }}" class="{{ 'on' if c == L else '' }}">{{ n }}</a>{% endfor %}</div>
+  </div>
+  <div class="hero-card" aria-hidden="true">
+    <div class="prompt-box" style="box-shadow:none">
+      <div style="min-height:60px;padding:4px 6px;font-size:15px">{{ t('landing.sample_prompt') }}</div>
+      <div class="bar"><span class="grow"></span><span class="send" style="display:grid">➜</span></div>
+    </div>
+    <div style="margin-top:14px">
+      {% for k in ['budget_h','team_h','duration_h'] %}<span class="qchip {{ 'on' if loop.first else 'done' }}" style="margin-inline-end:6px">{{ t('q.' ~ k) }}</span>{% endfor %}
+    </div>
+    <ul style="padding-inline-start:18px;margin:14px 0 0;color:#374151;font-size:14px">
+      {% for k in tl('landing.outputs') %}<li>{{ k }}</li>{% endfor %}
+    </ul>
+  </div>
+</section>
+<section class="feat">
+  {% for i in range(1, 7) %}
+  <div class="card"><h3>{{ t('landing.f' ~ i ~ '_t') }}</h3><div class="muted">{{ t('landing.f' ~ i ~ '_d') }}</div></div>
+  {% endfor %}
+</section>
+<footer class="muted small" style="text-align:center;padding:30px 16px">MissionPilot AI · {{ t('landing.footer') }}</footer>
+{% endblock %}

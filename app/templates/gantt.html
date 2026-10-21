@@ -1,0 +1,20 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header, dl %}
+{% block title %}{{ t('nav.gantt') }}{% endblock %}
+{% block content %}
+{% call header(4, t('nav.gantt'), t('gantt.desc')) %}
+  {{ dl('/files/p/' ~ pid ~ '/gantt.xml?lang=' ~ L, t('dl.msproject'), 'project') }}
+  {{ dl('/files/p/' ~ pid ~ '/gantt.xlsx?lang=' ~ L, t('dl.excel'), 'xls') }}
+  {{ dl('/files/p/' ~ pid ~ '/gantt.pdf?lang=' ~ L ~ '&scale=' ~ scale, t('dl.pdf'), 'pdf') }}
+{% endcall %}
+<div class="actions" style="margin-bottom:12px">
+  <span class="muted small">{{ t('gantt.zoom') }}</span>
+  {% for s in ['day','week','month'] %}<a class="btn sm {{ 'primary' if scale == s else '' }}" href="?scale={{ s }}">{{ t('gantt.scale_' ~ s) }}</a>{% endfor %}
+  <span class="muted small">· {{ t('gantt.summary', n=d.tasks|length, start=i18n.date(d.project.start_date, L), end=i18n.date(d.project.end_date, L)) }}</span>
+</div>
+<div class="card" id="gantt" style="padding:10px">
+  <div class="chart">{{ svg|safe }}</div>
+</div>
+<div class="card"><div class="chart">{{ legend|safe }}</div>
+<p class="muted small" style="margin-bottom:0">{{ t('gantt.ms_help') }}</p></div>
+{% endblock %}

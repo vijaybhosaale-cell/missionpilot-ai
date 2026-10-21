@@ -1,0 +1,30 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header %}
+{% block title %}{{ t('nav.projects') }}{% endblock %}
+{% block content %}
+{% call header(2, t('nav.projects'), t('projects.desc')) %}
+  <a class="btn primary" href="/app/new">{{ icon('plus') }}{{ t('nav.new_project') }}</a>
+{% endcall %}
+{% if not items %}
+<div class="card empty"><div class="big">🚀</div><p>{{ t('projects.empty') }}</p>
+  <a class="btn primary" href="/app/new">{{ t('nav.new_project') }}</a> <a class="btn" href="/demo">{{ t('landing.try_demo') }}</a></div>
+{% endif %}
+<div class="grid g3">
+{% for d in items %}{% set m = d.metrics %}
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+      <h2 style="margin:0"><a href="/app/p/{{ d.project.id }}/home">{{ d.project.display_name }}</a></h2>
+      <span class="health {{ m.health }}"><i></i></span>
+    </div>
+    <div class="muted small" style="margin:4px 0 10px">{{ t('ptype.' ~ d.project.project_type) }} · {{ i18n.date(d.project.start_date, L) }} → {{ i18n.date(d.project.end_date, L) }}</div>
+    <div class="mini-bar" title="{{ i18n.pct(m.progress, L) }}"><span style="width:{{ m.progress|round(1) }}%"></span></div>
+    <div class="small" style="margin-top:6px;display:flex;justify-content:space-between"><span>{{ t('progress.done_short', pct=i18n.pct(m.progress, L)) }}</span><span class="muted">{{ t('progress.left_short', pct=i18n.pct(100 - m.progress, L)) }}</span></div>
+    <div class="small muted" style="margin-top:6px">{{ t('kpi.tasks_done') }}: {{ i18n.num(m.tasks_done, L) }}/{{ i18n.num(m.tasks_total, L) }} · {{ t('kpi.overdue') }}: {{ i18n.num(m.overdue|length, L) }} · {{ t('doc.f.team') }}: {{ i18n.num(d.members|length, L) }}</div>
+    <div class="actions" style="margin-top:12px">
+      <a class="btn sm" href="/app/p/{{ d.project.id }}/home">{{ t('projects.open') }}</a>
+      <button class="btn sm danger" onclick="MPapp.deleteProject({{ d.project.id }})">{{ t('projects.delete') }}</button>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

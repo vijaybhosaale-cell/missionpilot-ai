@@ -1,0 +1,14 @@
+{% extends "base_public.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}{{ content.title }} · {{ content.project }}{% endblock %}
+{% block topright %}
+<a class="btn primary" href="/files/doc/{{ doc_id }}.pdf?token={{ token }}">{{ icon('pdf') }}{{ t('dl.pdf') }}</a>
+<a class="btn" href="/files/doc/{{ doc_id }}.docx?token={{ token }}">{{ icon('word') }}{{ t('dl.word') }}</a>
+{% endblock %}
+{% block content %}
+<style>{{ css|safe }}</style>
+<div style="max-width:960px;margin:10px auto 40px;padding:0 16px">
+  <p class="muted small">{{ t('share.shared_note') }}</p>
+  <div class="docpage">{{ html|safe }}</div>
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header, dl, trflag %}
+{% block title %}{{ t('nav.risks') }}{% endblock %}
+{% block content %}
+{% call header(7, t('nav.risks'), t('risks.desc')) %}
+  {{ dl('/files/p/' ~ pid ~ '/risks.xlsx?lang=' ~ L, t('dl.excel'), 'xls') }}
+  <button class="btn sm" onclick="MPapp.generate('report','risk')">{{ icon('pdf') }}{{ t('risks.report_btn') }}</button>
+{% endcall %}
+<div class="grid g2" style="grid-template-columns:minmax(0,420px) minmax(0,1fr)">
+  <div class="card" id="risk-matrix"><h2>{{ t('risks.matrix_title') }}</h2><div class="chart fit">{{ matrix|safe }}</div>
+    <p class="muted small">{{ t('risks.matrix_help') }}</p></div>
+  <div class="card">
+    <h2>{{ t('risks.summary') }}</h2>
+    <div class="kpis" style="margin:0">
+      <div class="kpi"><div class="l">{{ t('risks.total') }}</div><div class="v">{{ i18n.num(d.risks|length, L) }}</div></div>
+      <div class="kpi warn"><div class="l">{{ t('riskstatus.open') }}</div><div class="v">{{ i18n.num(d.metrics.open_risks, L) }}</div></div>
+      <div class="kpi bad"><div class="l">{{ t('risks.high') }}</div><div class="v">{{ i18n.num(d.metrics.high_risks, L) }}</div></div>
+    </div>
+  </div>
+</div>
+<div class="card" style="padding:0"><div class="tbl-wrap">
+<table class="tbl">
+  <thead><tr><th>{{ t('doc.c.id') }}</th><th>{{ t('doc.c.risk') }}</th><th>{{ t('doc.c.category') }}</th><th class="num">{{ t('doc.c.p') }}</th><th class="num">{{ t('doc.c.i') }}</th><th class="num">{{ t('doc.c.score') }}</th><th>{{ t('doc.c.owner') }}</th><th>{{ t('doc.c.mitigation') }}</th><th>{{ t('doc.c.status') }}</th></tr></thead>
+  <tbody>
+  {% for r in risks %}
+  <tr><td class="muted">{{ r.code }}</td><td>{{ r.title }}{{ trflag(r.tr_state, t) }}</td><td class="nowrap">{{ t('riskcat.' ~ r.category) }}</td>
+    <td class="num">{{ r.probability }}</td><td class="num">{{ r.impact }}</td>
+    <td class="num"><span class="badge {{ 'b-red' if r.score >= 16 else ('b-amber' if r.score >= 10 else 'b-green') }}">{{ r.score }}</span></td>
+    <td class="nowrap">{{ r.owner }}</td><td class="small">{{ r.mitigation }}</td>
+    <td><select onchange="MPapp.setRisk({{ r.id }}, this.value)" aria-label="{{ t('doc.c.status') }}">{% for s in ['open','mitigated','closed'] %}<option value="{{ s }}" {{ 'selected' if r.status == s else '' }}>{{ t('riskstatus.' ~ s) }}</option>{% endfor %}</select></td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

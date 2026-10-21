@@ -1,0 +1,61 @@
+{% from "_macros.html" import icon %}<!doctype html>
+<html lang="{{ L }}" dir="{{ info.dir }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}{{ t('app.name') }}{% endblock %} · MissionPilot AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700{% for f in info.gfonts %}&family={{ f }}{% endfor %}&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css?v={{ version }}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234053d6'/><path d='M8 22l6-12 4 8 3-5 3 9' stroke='white' stroke-width='2.4' fill='none' stroke-linejoin='round'/></svg>">
+<style>:root{--font:{{ info.font_css|safe }}}</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="nav" aria-label="{{ t('nav.label') }}">
+    <a class="brand" href="/app"><span class="logo">✈</span><span>MissionPilot AI<small>{{ t('app.tagline') }}</small></span></a>
+    <ul class="nav">
+      {% for n in nav %}
+      <li><a href="{{ n.href }}" class="{{ 'on' if active == n.key else '' }}" id="nav-{{ n.key }}"><span class="n">{{ loop.index }}</span>{{ icon(n.icon) }}<span>{{ n.label }}</span></a></li>
+      {% endfor %}
+    </ul>
+    <div class="side-foot">
+      {% if user and user.is_demo %}
+        <div>{{ t('demo.badge') }}</div>
+        <button class="btn sm" onclick="MPapp.resetDemo()">{{ t('demo.reset') }}</button>
+        <a class="btn sm primary" href="/register">{{ t('demo.signup') }}</a>
+      {% else %}
+        <div>{{ user.name if user else '' }}</div>
+      {% endif %}
+      <div style="margin-top:8px">v{{ version }} · {{ t('app.engine_' ~ ('ai' if ai_on else 'template')) }}</div>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <button class="btn sm menu-btn" onclick="document.getElementById('nav').classList.toggle('open')" aria-label="{{ t('nav.menu') }}">{{ icon('menu') }}</button>
+      {% if projects %}
+      <select id="project-switch" aria-label="{{ t('nav.project_switch') }}" onchange="location.href='/app/p/'+this.value+'/{{ active if active in ['home','tasks','gantt','progress','budget','risks','team','reports','documents','assistant'] else 'home' }}'">
+        {% for p in projects %}<option value="{{ p.id }}" {{ 'selected' if p.id == pid else '' }}>{{ p.name }}</option>{% endfor %}
+      </select>
+      {% endif %}
+      <a class="btn sm primary" href="/app/new" id="btn-new-project">{{ icon('plus') }}<span class="hide-sm">{{ t('nav.new_project') }}</span></a>
+      <span class="grow"></span>
+      {% if ai_on %}<span class="badge b-ai hide-sm" title="{{ t('app.engine_ai_help') }}">✦ Claude</span>{% endif %}
+      <button class="btn sm" id="tour-btn" onclick="MPtour.start(0,true)" title="{{ t('tour.button_help') }}">{{ icon('speaker') }}<span class="hide-sm">{{ t('tour.button') }}</span></button>
+      <label class="sr" for="lang-switch">{{ t('nav.language') }}</label>
+      <select id="lang-switch" onchange="MPapp.setLang(this.value)">
+        {% for c, n in locales %}<option value="{{ c }}" lang="{{ c }}" {{ 'selected' if c == L else '' }}>{{ n }}</option>{% endfor %}
+      </select>
+      <a class="btn sm ghost" href="/logout" title="{{ t('nav.logout') }}">⎋</a>
+    </header>
+    <main class="content" id="main">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>window.MP = {{ js|safe }};</script>
+<script src="/static/app.js?v={{ version }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

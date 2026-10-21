@@ -1,0 +1,33 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}{{ t('new.title') }}{% endblock %}
+{% block content %}
+<div class="composer" id="composer">
+  <h1>{{ t('new.title') }}</h1>
+  <p class="sub">{{ t('new.sub') }}</p>
+  <div class="prompt-box" id="prompt-box">
+    <label class="sr" for="prompt">{{ t('new.placeholder') }}</label>
+    <textarea id="prompt" placeholder="{{ t('new.placeholder') }}" autofocus></textarea>
+    <div class="bar">
+      <button class="mic" id="new-mic" type="button" title="{{ t('voice.mic') }}" aria-label="{{ t('voice.mic') }}">{{ icon('mic') }}</button>
+      <span class="grow muted small">{{ t('new.hint') }}</span>
+      <button class="send" id="send" type="button" aria-label="{{ t('new.send') }}" disabled>{{ icon('send') }}</button>
+    </div>
+  </div>
+  <div class="examples" id="examples">
+    {% for e in examples %}<button type="button" data-ex="{{ e }}">{{ e }}</button>{% endfor %}
+  </div>
+  <p class="muted small" style="text-align:center;margin-top:18px">{{ t('new.engine_note_' ~ ('ai' if ai_on else 'template')) }}</p>
+</div>
+<div id="gen" class="gen" hidden>
+  <h2 style="font-size:19px" id="gen-title">{{ t('gen.title') }}</h2>
+  <div class="muted" id="gen-name"></div>
+  <ul id="gen-steps">
+    {% for k in ['analyse','phases','tasks','gantt','resources','budget','risks','docs'] %}
+    <li data-step="{{ loop.index0 }}"><span class="ic">○</span>{{ t('gen.' ~ k) }}</li>
+    {% endfor %}
+  </ul>
+</div>
+<div id="qmodal"></div>
+{% endblock %}
+{% block scripts %}<script>MPnew.init()</script>{% endblock %}

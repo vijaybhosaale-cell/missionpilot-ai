@@ -1,0 +1,19 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header %}
+{% block title %}{{ t('nav.help') }}{% endblock %}
+{% block content %}
+{% call header(13, t('nav.help'), t('help.desc')) %}
+  <button class="btn primary" onclick="MPtour.start(0,true)">{{ icon('speaker') }}{{ t('help.start_tour') }}</button>
+  <a class="btn" href="/demo?lang={{ L }}">{{ t('help.open_demo') }}</a>
+{% endcall %}
+<div class="card">
+  <label class="sr" for="help-search">{{ t('help.search') }}</label>
+  <input id="help-search" type="text" placeholder="{{ t('help.search') }}" style="width:100%" oninput="MPapp.filterHelp(this.value)">
+</div>
+<div class="grid g2" id="help-list">
+  {% for k in ['create','questions','progress','gantt','docs','share','reports','languages','voice','assistant','budget','live'] %}
+  <div class="card help-item"><h2>{{ t('help.' ~ k ~ '_t') }}</h2>
+    <ol style="margin:0;padding-inline-start:20px">{% for s in tl('help.' ~ k ~ '_s') %}<li>{{ s }}</li>{% endfor %}</ol></div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header, dl %}
+{% block title %}{{ t('nav.budget') }}{% endblock %}
+{% block content %}
+{% set cur = d.project.currency %}
+{% call header(6, t('nav.budget'), t('budget.desc')) %}
+  {{ dl('/files/p/' ~ pid ~ '/budget.xlsx?lang=' ~ L, t('dl.excel'), 'xls') }}
+  <button class="btn sm" onclick="MPapp.generate('report','budget')">{{ icon('pdf') }}{{ t('budget.report_btn') }}</button>
+{% endcall %}
+<div class="kpis">
+  <div class="kpi"><div class="l">{{ t('budget.planned') }}</div><div class="v">{{ i18n.money_minor(m.budget_planned, cur, L) }}</div></div>
+  <div class="kpi"><div class="l">{{ t('budget.actual') }}</div><div class="v">{{ i18n.money_minor(m.budget_actual, cur, L) }}</div><div class="s">{{ i18n.pct(100 * m.budget_actual / (m.budget_planned or 1), L) }}</div></div>
+  <div class="kpi {{ 'bad' if m.budget_left < 0 else 'good' }}"><div class="l">{{ t('budget.remaining') }}</div><div class="v">{{ i18n.money_minor(m.budget_left, cur, L) }}</div></div>
+  <div class="kpi {{ 'bad' if m.cpi and m.cpi < 0.9 else 'good' }}"><div class="l" title="{{ t('kpi.cpi_d') }}">{{ t('kpi.cpi') }}</div><div class="v">{{ i18n.num(m.cpi, L, 2) if m.cpi else '—' }}</div><div class="s">{{ t('kpi.cpi_short') }}</div></div>
+  <div class="kpi {{ 'bad' if m.spi and m.spi < 0.9 else 'good' }}"><div class="l" title="{{ t('kpi.spi_d') }}">{{ t('kpi.spi') }}</div><div class="v">{{ i18n.num(m.spi, L, 2) if m.spi else '—' }}</div><div class="s">{{ t('kpi.spi_short') }}</div></div>
+  <div class="kpi"><div class="l" title="{{ t('kpi.eac_d') }}">{{ t('kpi.eac') }}</div><div class="v" style="font-size:20px">{{ i18n.money_minor(m.eac, cur, L) if m.eac else '—' }}</div></div>
+</div>
+<div class="card" id="budget-chart"><h2>{{ t('budget.chart_title') }}</h2><div class="chart fit">{{ chart|safe }}</div></div>
+<div class="card" style="padding:0">
+  <div class="tbl-wrap">
+  <table class="tbl">
+    <thead><tr><th>{{ t('doc.c.category') }}</th><th class="num">{{ t('budget.planned') }} ({{ i18n.currency_symbol(cur, L) }})</th><th class="num">{{ t('budget.actual') }} ({{ i18n.currency_symbol(cur, L) }})</th><th class="num">{{ t('doc.c.variance') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for b in d.budget %}
+      <tr><td>{{ b.label }}</td>
+      <td class="num"><input type="number" min="0" step="1" value="{{ (b.planned / 100)|round(0)|int }}" style="width:130px;text-align:end" onchange="MPapp.setBudget({{ b.id }}, 'planned', this.value)" aria-label="{{ t('budget.planned') }}"></td>
+      <td class="num"><input type="number" min="0" step="1" value="{{ (b.actual / 100)|round(0)|int }}" style="width:130px;text-align:end" onchange="MPapp.setBudget({{ b.id }}, 'actual', this.value)" aria-label="{{ t('budget.actual') }}"></td>
+      <td class="num" style="color:{{ 'var(--red)' if b.variance < 0 else 'inherit' }}">{{ i18n.money_minor(b.variance, cur, L) }}</td>
+      <td><div class="mini-bar" title="{{ i18n.pct(100 * b.actual / (b.planned or 1), L) }}"><span style="width:{{ [100, 100 * b.actual / (b.planned or 1)]|min }}%;background:{{ 'var(--red)' if b.variance < 0 else 'var(--brand)' }}"></span></div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+<p class="muted small">{{ t('budget.help') }}</p>
+{% endblock %}

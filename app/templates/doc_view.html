@@ -1,0 +1,29 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}{{ content.title }}{% endblock %}
+{% block content %}
+<style>{{ css|safe }}</style>
+<div class="ph">
+  <div class="t">
+    <a href="/app/p/{{ row.project_id }}/{{ 'documents' if row.kind == 'doc' else 'reports' }}" class="small">← {{ t('nav.documents' if row.kind == 'doc' else 'nav.reports') }}</a>
+    <h1 style="margin-top:6px">{{ content.title }}</h1>
+    <p>{{ content.project }} · {{ i18n.LOCALES[row.locale].name }} · v{{ row.version }}{% if row.engine == 'ai' %} · <span class="badge b-ai">✦ Claude</span>{% endif %}</p>
+  </div>
+  <div class="actions">
+    <a class="btn primary" href="/files/doc/{{ row.id }}.pdf" data-dl>{{ icon('pdf') }}{{ t('dl.pdf') }}</a>
+    <a class="btn" href="/files/doc/{{ row.id }}.docx" data-dl>{{ icon('word') }}{{ t('dl.word') }}</a>
+    <button class="btn" onclick="MPapp.share({{ row.id }})">{{ icon('share') }}{{ t('share.button') }}</button>
+    <button class="btn" onclick="window.open('/files/doc/{{ row.id }}.html','_blank')">🖨 {{ t('docs.print') }}</button>
+  </div>
+</div>
+<div class="card no-print">
+  <div class="actions">
+    <span class="small muted">{{ t('docs.other_language') }}</span>
+    <select id="out-lang">{% for c, n in locales %}<option value="{{ c }}" {{ 'selected' if c == row.locale else '' }}>{{ n }}</option>{% endfor %}</select>
+    <button class="btn sm" onclick="MPapp.generate('{{ row.kind }}','{{ row.doc_type }}')">{{ t('docs.regenerate') }}</button>
+    {% if others|length > 1 %}<span class="small muted">· {{ t('docs.versions') }}:</span>
+    {% for o in others[:8] %}<a class="small" href="/app/doc/{{ o.id }}">{{ o.locale }} v{{ o.version }}</a>{% endfor %}{% endif %}
+  </div>
+</div>
+<div class="docpage">{{ html|safe }}</div>
+{% endblock %}

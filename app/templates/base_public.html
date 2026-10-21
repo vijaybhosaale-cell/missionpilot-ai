@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="{{ L }}" dir="{{ info.dir }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}MissionPilot AI{% endblock %}</title>
+<meta name="description" content="{{ t('landing.meta') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700{% for f in info.gfonts %}&family={{ f }}{% endfor %}&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css?v={{ version }}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234053d6'/><path d='M8 22l6-12 4 8 3-5 3 9' stroke='white' stroke-width='2.4' fill='none' stroke-linejoin='round'/></svg>">
+<style>:root{--font:{{ info.font_css|safe }}}</style>
+</head>
+<body class="public">
+<header class="pub-top">
+  <a class="brand" href="/"><span class="logo" style="color:#fff">✈</span><span>MissionPilot AI<small>{{ t('app.tagline') }}</small></span></a>
+  <span style="flex:1"></span>
+  <label class="sr" for="lang-switch">{{ t('nav.language') }}</label>
+  <select id="lang-switch" onchange="location.href='?lang='+this.value">
+    {% for c, n in locales %}<option value="{{ c }}" lang="{{ c }}" {{ 'selected' if c == L else '' }}>{{ n }}</option>{% endfor %}
+  </select>
+  {% block topright %}{% endblock %}
+</header>
+{% block content %}{% endblock %}
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>window.MP = {{ js|safe }};</script>
+<script src="/static/app.js?v={{ version }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
