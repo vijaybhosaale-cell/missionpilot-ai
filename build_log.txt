@@ -1,0 +1,31 @@
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 4 files:  75%|███████▌  | 3/4 [00:00<00:00, 15.39it/s]Fetching 4 files: 100%|██████████| 4/4 [00:04<00:00,  1.09s/it]
+{
+ "source": "sentence-transformers/static-similarity-mrl-multilingual-v1",
+ "license": "Apache-2.0",
+ "tensor": "embedding.weight",
+ "shape": [
+  105879,
+  128
+ ],
+ "dims": 128,
+ "files": [
+  "0_StaticEmbedding",
+  "0_StaticEmbedding/model.safetensors",
+  "0_StaticEmbedding/tokenizer.json",
+  "config_sentence_transformers.json",
+  "modules.json"
+ ]
+}
+Collecting tokenizers
+  Using cached tokenizers-0.23.3-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (9.8 kB)
+Using cached tokenizers-0.23.3-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.4 MB)
+Saved ./wheels/tokenizers-0.23.3-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+Successfully downloaded tokenizers
+
+[notice] A new release of pip is available: 26.2.1 -> 26.2.2
+[notice] To update, run: pip install --upgrade pip
+SIM Tasks take longer than planned | Schedule delay 0.44572800397872925
+SIM Tasks take longer than planned | Personal data leak 0.056478291749954224
+SIM Les coûts dépassent le budget | Costs exceed the budget 0.8555313348770142
+SIM खर्च बजेटपेक्षा जास्त होतो | Costs exceed the budget 0.24289903044700623
