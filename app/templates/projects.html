@@ -3,6 +3,7 @@
 {% block title %}{{ t('nav.projects') }}{% endblock %}
 {% block content %}
 {% call header(2, t('nav.projects'), t('projects.desc')) %}
+  <a class="btn" href="/app/import" id="btn-import">{{ icon('upload') }}{{ t('imp.button') }}</a>
   <a class="btn primary" href="/app/new">{{ icon('plus') }}{{ t('nav.new_project') }}</a>
 {% endcall %}
 {% if not items %}

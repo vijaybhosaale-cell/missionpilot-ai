@@ -3,11 +3,25 @@
 {% block title %}{{ d.project.display_name }}{% endblock %}
 {% block content %}
 {% if created %}<div class="flash">✓ {{ t('home.created', n=m.tasks_total) }}</div>{% endif %}
+{% if request.query_params.get('imported') %}<div class="flash">✓ {{ t('imp.done', n=request.query_params.get('imported')|int) }}</div>{% endif %}
 {% call header(1, d.project.display_name, t('home.desc'), 'home-head') %}
-  <span class="health {{ m.health }}" title="{{ t('health.help') }}"><i></i>{{ t('health.' ~ m.health) }}</span>
+  <a class="btn sm" href="/app/p/{{ pid }}/client" id="btn-client">{{ icon('link') }}{{ t('client.button') }}</a>
+  <button class="btn sm" onclick="MPapp.weeklyNow()" id="btn-weekly">{{ icon('mail') }}{{ t('mail.weekly_button') }}</button>
   <a class="btn sm" href="/app/p/{{ pid }}/documents">{{ icon('doc') }}{{ t('home.go_docs') }}</a>
-  <a class="btn sm" href="/app/p/{{ pid }}/gantt">{{ icon('gantt') }}{{ t('nav.gantt') }}</a>
 {% endcall %}
+<div class="card verdict v-{{ v.level }}" id="verdict">
+  <div class="vtop">
+    <span class="vbadge {{ m.health }}"><i></i>{{ t('verdict.' ~ v.level) }}</span>
+    <span class="muted small">{{ t('verdict.help') }}</span>
+  </div>
+  {% if v.reasons %}
+  <div class="vlabel">{{ t('verdict.top_reasons') }}</div>
+  <ol class="vreasons">{% for k, p, sev in v.reasons[:3] %}<li class="sev{{ sev }}">{{ vr(k, p) }}</li>{% endfor %}</ol>
+  {% if v.reasons|length > 3 %}<div class="muted small">{{ t('verdict.more', n=v.reasons|length - 3) }} <a href="/app/p/{{ pid }}/risks">{{ t('nav.risks') }} →</a></div>{% endif %}
+  {% else %}
+  <ol class="vreasons good">{% for k, p in v.good %}<li>{{ t(k, **p) }}</li>{% endfor %}</ol>
+  {% endif %}
+</div>
 {% if d.project.display_description %}<p class="muted" style="margin-top:-8px">{{ d.project.display_description }}</p>{% endif %}
 <div class="kpis" id="kpis">
   <div class="kpi {{ 'good' if m.variance_pts >= -2 else ('warn' if m.variance_pts > -10 else 'bad') }}"><div class="l">{{ t('kpi.progress') }}</div><div class="v">{{ i18n.pct(m.progress, L) }}</div><div class="s">{{ t('kpi.planned_today', v=i18n.pct(m.planned, L)) }}</div></div>

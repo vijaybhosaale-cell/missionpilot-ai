@@ -12,23 +12,50 @@
   <div class="card">
     <h2>{{ t('risks.summary') }}</h2>
     <div class="kpis" style="margin:0">
-      <div class="kpi"><div class="l">{{ t('risks.total') }}</div><div class="v">{{ i18n.num(d.risks|length, L) }}</div></div>
+      <div class="kpi"><div class="l">{{ t('risks.total') }}</div><div class="v">{{ i18n.num(d.risks|rejectattr('status','equalto','cleared')|list|length, L) }}</div></div>
       <div class="kpi warn"><div class="l">{{ t('riskstatus.open') }}</div><div class="v">{{ i18n.num(d.metrics.open_risks, L) }}</div></div>
       <div class="kpi bad"><div class="l">{{ t('risks.high') }}</div><div class="v">{{ i18n.num(d.metrics.high_risks, L) }}</div></div>
+      <div class="kpi"><div class="l">{{ t('risks.auto_n') }}</div><div class="v">{{ i18n.num(d.risks|selectattr('source','equalto','auto')|rejectattr('status','equalto','cleared')|list|length, L) }}</div></div>
     </div>
+    <p class="small" style="margin:12px 0 0"><span class="badge b-auto">⚙ {{ t('risks.auto') }}</span> {{ t('risks.auto_help') }}</p>
+    <p class="small" style="margin:8px 0 0"><span class="ai-chip">✦ AI</span> {{ t('ai.human_decides') }}
+      <span class="muted">{% if ml_status.on %}{{ t('ai.model_on', model=ml_status.model) }}{% else %}{{ t('ai.model_off') }}{% endif %}</span></p>
   </div>
 </div>
+{% if dups %}
+<div class="card" id="risk-dups">
+  <h2>✦ {{ t('ai.dups_title') }} <span class="muted">{{ t('ai.human_decides') }}</span></h2>
+  <table class="tbl"><tbody>
+  {% for a, b, s in dups[:8] %}
+    <tr><td class="nowrap"><b>{{ a.code }}</b> ↔ <b>{{ b.code }}</b></td><td>{{ a.title }}<br><span class="muted">{{ b.title }}</span></td>
+      <td class="num nowrap">{{ t('ai.similar', pct=i18n.pct(100 * s, L)) }}</td>
+      <td class="nowrap"><button class="btn sm" onclick="MPapp.riskField({{ b.id }}, {status:'closed'})">{{ t('ai.close_dup', rid=b.code) }}</button></td></tr>
+  {% endfor %}
+  </tbody></table>
+</div>
+{% endif %}
 <div class="card" style="padding:0"><div class="tbl-wrap">
-<table class="tbl">
-  <thead><tr><th>{{ t('doc.c.id') }}</th><th>{{ t('doc.c.risk') }}</th><th>{{ t('doc.c.category') }}</th><th class="num">{{ t('doc.c.p') }}</th><th class="num">{{ t('doc.c.i') }}</th><th class="num">{{ t('doc.c.score') }}</th><th>{{ t('doc.c.owner') }}</th><th>{{ t('doc.c.mitigation') }}</th><th>{{ t('doc.c.status') }}</th></tr></thead>
+<table class="tbl risks-tbl">
+  <thead><tr><th>{{ t('doc.c.id') }}</th><th>{{ t('doc.c.risk') }}</th><th>{{ t('doc.c.category') }}</th><th class="num">{{ t('doc.c.p') }}</th><th class="num">{{ t('doc.c.i') }}</th><th class="num">{{ t('doc.c.score') }}</th><th>{{ t('doc.c.owner') }}</th><th>{{ t('doc.c.mitigation') }}</th><th>{{ t('risks.evidence') }}</th><th>{{ t('doc.c.status') }}</th></tr></thead>
   <tbody>
-  {% for r in risks %}
-  <tr><td class="muted">{{ r.code }}</td><td>{{ r.title }}{{ trflag(r.tr_state, t) }}</td><td class="nowrap">{{ t('riskcat.' ~ r.category) }}</td>
+  {% for r in risks %}{% set sg = sugg.get(r.id) %}
+  <tr class="{{ 'cleared' if r.status == 'cleared' else '' }}" data-risk="{{ r.id }}">
+    <td class="muted nowrap">{{ r.code }}{% if r.source == 'auto' %}<br><span class="badge b-auto" title="{{ t('risks.auto_help') }}">⚙ {{ t('risks.auto') }}</span>{% endif %}</td>
+    <td>{{ r.title }}{{ trflag(r.tr_state, t) }}
+      {% if r.why %}<div class="why"><b>{{ t('risks.why') }}</b> {{ r.why }}</div>{% endif %}
+      {% if r.status == 'cleared' and r.cleared_at %}<div class="muted small">{{ t('risks.cleared_on', date=i18n.date(r.cleared_at[:10], L)) }}</div>{% endif %}</td>
+    <td class="nowrap">{{ t('riskcat.' ~ r.category) }}
+      {% if sg and sg.riskcat and sg.riskcat != r.category %}<div class="ai-sugg">✦ {{ t('ai.suggests') }} <b>{{ t('riskcat.' ~ sg.riskcat) }}</b> <span class="muted">({{ i18n.pct(100 * sg.confidence, L) }})</span><br>
+        <button class="btn sm" onclick="MPapp.riskField({{ r.id }}, {category:'{{ sg.riskcat }}'})">{{ t('ai.apply') }}</button></div>
+      {% elif sg and sg.riskcat %}<div class="ai-ok">✦ {{ t('ai.agrees') }}</div>{% endif %}</td>
     <td class="num">{{ r.probability }}</td><td class="num">{{ r.impact }}</td>
-    <td class="num"><span class="badge {{ 'b-red' if r.score >= 16 else ('b-amber' if r.score >= 10 else 'b-green') }}">{{ r.score }}</span></td>
+    <td class="num"><span class="badge band-{{ r.band }}" title="{{ t('band.' ~ r.band) }}">{{ r.score }}</span></td>
     <td class="nowrap">{{ r.owner }}</td><td class="small">{{ r.mitigation }}</td>
-    <td><select onchange="MPapp.setRisk({{ r.id }}, this.value)" aria-label="{{ t('doc.c.status') }}">{% for s in ['open','mitigated','closed'] %}<option value="{{ s }}" {{ 'selected' if r.status == s else '' }}>{{ t('riskstatus.' ~ s) }}</option>{% endfor %}</select></td></tr>
+    <td><select onchange="MPapp.riskField({{ r.id }}, {evidence:this.value})" aria-label="{{ t('risks.evidence') }}">{% for e in ['hypothesis','signal','confirmed'] %}<option value="{{ e }}" {{ 'selected' if r.evidence == e else '' }}>{{ t('evidence.' ~ e) }}</option>{% endfor %}</select></td>
+    <td>{% if r.status == 'cleared' %}<span class="badge b-green" title="{{ t('riskstatus.cleared_help') }}">{{ t('riskstatus.cleared') }}</span>
+      {% else %}<select onchange="MPapp.riskField({{ r.id }}, {status:this.value})" aria-label="{{ t('doc.c.status') }}">{% for s in ['open','mitigated','closed'] %}<option value="{{ s }}" {{ 'selected' if r.status == s else '' }}>{{ t('riskstatus.' ~ s) }}</option>{% endfor %}</select>{% endif %}</td></tr>
   {% endfor %}
   </tbody>
 </table></div></div>
+<p class="muted small">{{ t('risks.bands_note') }}</p>
 {% endblock %}

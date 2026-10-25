@@ -115,12 +115,24 @@ def load(pid: int, locale: str) -> dict | None:
     mname = {m["id"]: m["name"] for m in m_out}
     r_out = []
     for r in risks:
-        title, st = text(r, "title", locale, canon, trr)
-        mit, _ = text(r, "mitigation", locale, canon, trr)
+        keys = r.keys()
+        source = r["source"] if "source" in keys else "plan"
+        why = ""
+        if source == "auto":
+            title, mit, why = auto_text(r, locale)
+            st = "key"
+        else:
+            title, st = text(r, "title", locale, canon, trr)
+            mit, _ = text(r, "mitigation", locale, canon, trr)
+        score = r["probability"] * r["impact"]
         r_out.append(dict(id=r["id"], seq=r["seq"], code=r["code"], title=title, mitigation=mit, tr_state=st,
                           category=r["category"], probability=r["probability"], impact=r["impact"],
-                          score=r["probability"] * r["impact"], owner=mname.get(r["owner_id"], "—"),
-                          owner_id=r["owner_id"], status=r["status"]))
+                          score=score, band=risk_band(score), owner=mname.get(r["owner_id"], "—"),
+                          owner_id=r["owner_id"], status=r["status"], source=source, why=why,
+                          rule_key=r["rule_key"] if "rule_key" in keys else None,
+                          evidence=(r["evidence"] if "evidence" in keys else "hypothesis") or "hypothesis",
+                          cleared_at=r["cleared_at"] if "cleared_at" in keys else None,
+                          canonical_title=r["title_text"] or (i18n.t(r["title_key"], "en") if r["title_key"] else "")))
     b_out = [dict(id=b["id"], category=b["category"],
                   label=b["label_text"] or i18n.t(f"budget.{b['category']}", locale),
                   planned=b["planned_minor"], actual=b["actual_minor"],
@@ -130,7 +142,140 @@ def load(pid: int, locale: str) -> dict | None:
     proj["display_description"] = project_description(p, locale)
     data = dict(project=proj, members=m_out, phases=ph_out, tasks=t_out, risks=r_out, budget=b_out)
     data["metrics"] = metrics(data)
+    data["conditions"] = conditions(data)
+    data["verdict"] = verdict(data)
+    data["metrics"]["health"] = {"on_track": "green", "at_risk": "amber", "critical": "red"}[data["verdict"]["level"]]
     return data
+
+
+# ---------------------------------------------------------------- risk bands (one definition for matrix, table and e-mails)
+
+def risk_band(score: int) -> str:
+    """Same colours as the 5×5 matrix: green < 6, yellow 6-11, orange 12-15, red 16-25."""
+    if score >= 16:
+        return "critical"
+    if score >= 12:
+        return "high"
+    if score >= 6:
+        return "medium"
+    return "low"
+
+
+# ---------------------------------------------------------------- automatic risk text
+
+def _fmt_param(k: str, v, locale: str):
+    if isinstance(v, list):
+        return ", ".join(str(_fmt_param(k, x, locale)) for x in v)
+    if k.endswith("date") and isinstance(v, str) and len(v) == 10:
+        return i18n.date(D(v), locale)
+    if k.endswith("week") and isinstance(v, str) and len(v) == 10:
+        return i18n.short_date(D(v), locale)
+    if isinstance(v, float):
+        return i18n.num(v, locale, 2)
+    if isinstance(v, int):
+        return i18n.num(v, locale)
+    return v
+
+
+def auto_text(r, locale: str) -> tuple[str, str, str]:
+    """Title, mitigation and 'why it was raised' for a risk created by the rule engine."""
+    import json as _json
+    rule = (r["rule_key"] or "x:").split(":")[0]
+    try:
+        params = _json.loads(r["params_json"] or "{}")
+    except ValueError:
+        params = {}
+    p = {k: _fmt_param(k, v, locale) for k, v in params.items()}
+    return (i18n.t(f"auto.{rule}.t", locale, **p), i18n.t(f"auto.{rule}.m", locale, **p), i18n.t(f"auto.{rule}.why", locale, **p))
+
+
+# ---------------------------------------------------------------- conditions shared by the verdict and the risk engine
+
+def _ancestors(tid: int, by: dict) -> set[int]:
+    seen, stack = set(), list(by[tid]["preds"])
+    while stack:
+        x = stack.pop()
+        if x in seen or x not in by:
+            continue
+        seen.add(x)
+        stack.extend(by[x]["preds"])
+    return seen
+
+
+def conditions(data: dict) -> dict:
+    """Facts computed from the project data. Every automatic risk and every verdict reason comes from here."""
+    m = data["metrics"]
+    today = m["today"]
+    tasks = data["tasks"]
+    by = {t["id"]: t for t in tasks}
+    crit = m["critical"]
+    overdue_crit = [t for t in m["overdue"] if t["id"] in crit and not t["milestone"]]
+    blocked = [t for t in tasks if t["status"] == "blocked" and t["progress"] < 100]
+    wl = workload(dict(data, tasks=[t for t in tasks if t["progress"] < 100]))  # finished work no longer loads anyone
+    overload = []
+    for r in wl["rows"]:
+        weeks = [(w, h) for w, h, o in zip(wl["weeks"], r["hours"], r["over"]) if o and w + dt.timedelta(days=4) >= today]
+        if weeks:
+            overload.append(dict(member=r["member"], weeks=weeks, peak=max(h for _, h in weeks), capacity=r["capacity"]))
+    ms_risk = []
+    for ms in sorted((t for t in tasks if t["milestone"] and t["progress"] < 100), key=lambda t: t["end"]):
+        anc = [by[a] for a in _ancestors(ms["id"], by)]
+        late = [a for a in anc if a["progress"] < 100 and (a["end"] < today or a["status"] == "blocked")]
+        left_by_member: dict = {}
+        for a in anc:
+            if a["progress"] < 100 and not a["milestone"]:
+                left_by_member[a["assignee_id"]] = left_by_member.get(a["assignee_id"], 0) + a["left_days"]
+        need = max(left_by_member.values(), default=0)
+        avail = workdays_between(today, ms["end"]) if ms["end"] >= today else 0
+        if late or (need > avail and ms["end"] >= today):
+            ms_risk.append(dict(task=ms, late=late, need=round(need, 1), avail=avail))
+    return dict(overdue_crit=overdue_crit, blocked=blocked, overload=overload, milestones=ms_risk,
+                behind=m["variance_pts"], cpi=m["cpi"], spi=m["spi"],
+                over_budget=m["budget_actual"] > m["budget_planned"] > 0)
+
+
+def reason_text(key: str, params: dict, locale: str) -> str:
+    """Verdict reason in a language (indices with 2 decimals)."""
+    p = {k: (i18n.num(v, locale, 2) if k == "v" else v) for k, v in params.items()}
+    return i18n.t(key, locale, **p)
+
+
+def verdict(data: dict) -> dict:
+    """On track / At risk / Critical with the reasons, most serious first."""
+    m, c = data["metrics"], data["conditions"]
+    reasons = []  # (severity 1-3, key, params)
+    if c["over_budget"]:
+        reasons.append((3, "verdict.r.over_budget", {}))
+    if c["behind"] < -3:
+        reasons.append((3 if c["behind"] < -10 else 2, "verdict.r.behind", dict(pts=round(-c["behind"], 1))))
+    if c["overdue_crit"]:
+        reasons.append((2, "verdict.r.overdue_crit", dict(n=len(c["overdue_crit"]))))
+    elif m["overdue"]:
+        reasons.append((1, "verdict.r.overdue", dict(n=len(m["overdue"]))))
+    if c["spi"] is not None and c["spi"] < 0.95:
+        reasons.append((3 if c["spi"] < 0.8 else 2, "verdict.r.spi", dict(v=round(c["spi"], 2))))
+    if c["cpi"] is not None and c["cpi"] < 0.95:
+        reasons.append((3 if c["cpi"] < 0.8 else 2, "verdict.r.cpi", dict(v=round(c["cpi"], 2))))
+    for o in c["overload"][:2]:
+        reasons.append((2, "verdict.r.overload", dict(name=o["member"]["name"], h=o["peak"])))
+    if c["milestones"]:
+        reasons.append((2, "verdict.r.milestone", dict(name=c["milestones"][0]["task"]["title"])))
+    if c["blocked"]:
+        reasons.append((2, "verdict.r.blocked", dict(n=len(c["blocked"]))))
+    crit_risks = [r for r in data["risks"] if r["status"] == "open" and r["score"] >= 16 and r["source"] != "auto"]
+    if crit_risks:
+        reasons.append((2, "verdict.r.critical_risks", dict(n=len(crit_risks))))
+    reasons.sort(key=lambda x: -x[0])
+    worst = reasons[0][0] if reasons else 0
+    level = "critical" if worst >= 3 else ("at_risk" if worst >= 2 else "on_track")
+    good = []
+    if not reasons or level == "on_track":
+        good.append(("verdict.g.progress", dict(pts=round(c["behind"], 1))) if c["behind"] >= 0 else ("verdict.g.close", dict(pts=round(-c["behind"], 1))))
+        if not m["overdue"]:
+            good.append(("verdict.g.no_overdue", {}))
+        if c["cpi"] is None or c["cpi"] >= 0.95:
+            good.append(("verdict.g.budget", {}))
+    return dict(level=level, reasons=[(k, p, s) for s, k, p in reasons], good=good)
 
 
 # ---------------------------------------------------------------- metrics
@@ -204,7 +349,7 @@ def metrics(data: dict) -> dict:
     pv = bac * plan / 100
     cpi = ev / actual_total if actual_total else None
     spi = ev / pv if pv else None
-    open_risks = [r for r in data["risks"] if r["status"] == "open"]
+    open_risks = [r for r in data["risks"] if r["status"] == "open"]  # 'cleared' / 'mitigated' / 'closed' are not open
     high_risks = [r for r in open_risks if r["score"] >= 12]
     p = data["project"]
     end = D(p["end_date"])
@@ -252,6 +397,10 @@ def history(pid: int, data: dict) -> list[dict]:
             actual = sum(weight[t] * state[t] for t in state) / total if d <= today else None
             out.append(dict(date=d, planned=planned_progress(data["tasks"], d), actual=actual))
         d += dt.timedelta(days=1)
+    # the latest point always shows the current task progress, so the burndown and the KPI cards show the same number
+    past = [h for h in out if h["date"] <= today]
+    if past:
+        past[-1]["actual"] = overall_progress(data["tasks"])
     return out
 
 

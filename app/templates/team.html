@@ -24,7 +24,7 @@
 <div class="card" id="resource-chart"><h2>{{ t('team.heatmap_title') }} <span class="muted">{{ t('team.heatmap_help') }}</span></h2><div class="chart">{{ heat|safe }}</div></div>
 <div class="card"><h2>{{ t('team.overload') }}</h2>
   {% if over %}<ul>{% for mm, w, h in over[:15] %}<li>{{ t('team.overload_line', name=mm.name, week=i18n.short_date(w, L), h=h) }}</li>{% endfor %}</ul>
-  <p class="muted small">{{ t('team.overload_fix') }}</p>
+  <p class="muted small">{{ t('team.overload_fix') }} <a href="/app/p/{{ pid }}/whatif">{{ t('whatif.link') }} →</a></p>
   {% else %}<p class="muted">{{ t('team.no_overload') }}</p>{% endif %}
 </div>
 {% endblock %}

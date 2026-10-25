@@ -4,7 +4,11 @@
   "tagline": "Planification et suivi de projets par IA",
   "engine_ai": "Claude IA activé",
   "engine_template": "Moteur de modèles",
-  "engine_ai_help": "Les documents, plans et réponses sont rédigés par Claude"
+  "engine_ai_help": "Les documents, plans et réponses sont rédigés par Claude",
+  "template_badge": "Mode modèles",
+  "template_help": "La rédaction IA est désactivée : plans et documents viennent de la bibliothèque de modèles professionnels. Ajoutez une clé API Claude sur le serveur pour l'activer.",
+  "ml_badge": "Suggestions IA",
+  "ml_help": "Un petit modèle pré-entraîné tourne gratuitement sur ce serveur : il suggère les catégories des risques et des tâches, repère les risques en double et lit les notes de réunion. Vous décidez toujours."
  },
  "nav": {
   "label": "Navigation principale",
@@ -25,7 +29,9 @@
   "project_switch": "Changer de projet",
   "new_project": "Nouveau projet",
   "language": "Langue",
-  "logout": "Se déconnecter"
+  "logout": "Se déconnecter",
+  "whatif": "Et si… ?",
+  "notes": "Notes de réunion → tâches"
  },
  "auth": {
   "login": "Se connecter",
@@ -188,9 +194,9 @@
  },
  "health": {
   "green": "Dans les temps",
-  "amber": "À surveiller",
-  "red": "En danger",
-  "help": "Selon l'indice de délai, l'indice de coût et les tâches en retard."
+  "amber": "À risque",
+  "red": "Critique",
+  "help": "Verdict calculé à partir du planning, des coûts, des retards, de la charge et des jalons."
  },
  "status": {
   "todo": "Pas commencée",
@@ -323,7 +329,8 @@
   "remaining": "Restant",
   "chart_title": "Budget : prévu vs réel",
   "report_btn": "Rapport budgétaire (PDF/Word)",
-  "help": "Astuce : mettez à jour les dépenses réelles chaque semaine pour que l'indice de coût (CPI) reste fiable."
+  "help": "Astuce : mettez à jour les dépenses réelles chaque semaine pour que l'indice de coût (CPI) reste fiable.",
+  "remaining_help": "Prévu moins réel pour chaque ligne (argent pas encore dépensé). L'écart de coût est donné par le CPI."
  },
  "risks": {
   "desc": "Registre des risques avec probabilité, impact, responsable et mesure. La matrice montre où sont les plus grands risques.",
@@ -333,13 +340,22 @@
   "matrix_help": "Rouge = agir maintenant, orange = surveiller de près, jaune = suivre, vert = accepter.",
   "summary": "Synthèse",
   "total": "Risques",
-  "high": "Élevés (score ≥ 12)",
-  "report_btn": "Rapport des risques (PDF/Word)"
+  "high": "Élevés ou critiques (score ≥ 12)",
+  "report_btn": "Rapport des risques (PDF/Word)",
+  "auto": "Automatique",
+  "auto_n": "Détectés automatiquement",
+  "auto_help": "Détecté par une règle à partir des données du projet (charge, tâches en retard, plan, CPI/SPI, jalons). C'est un signal d'alerte, jamais confirmé automatiquement, et il se lève tout seul quand la cause disparaît.",
+  "why": "Pourquoi :",
+  "cleared_on": "Condition levée le {date}.",
+  "evidence": "Preuve",
+  "bands_note": "Score = probabilité × impact. Faible 1–5 (vert), moyen 6–11 (jaune), élevé 12–15 (orange), critique 16–25 (rouge) — les mêmes couleurs que la matrice."
  },
  "riskstatus": {
   "open": "Ouvert",
   "mitigated": "Atténué",
-  "closed": "Clos"
+  "closed": "Clos",
+  "cleared": "Condition levée",
+  "cleared_help": "Les données ne montrent plus ce problème. Il se rouvre automatiquement s'il revient."
  },
  "riskcat": {
   "scope": "Périmètre",
@@ -579,6 +595,44 @@
    "Envoyez le dossier sur GitHub.",
    "Créez un Web Service sur Render à partir du dépôt (Docker).",
    "Ajoutez SECRET_KEY (et ANTHROPIC_API_KEY pour Claude) puis déployez."
+  ],
+  "email_t": "Connecter Gmail pour les e-mails en temps réel",
+  "email_s": [
+   "Compte Google → Sécurité → activez la validation en deux étapes.",
+   "Ouvrez myaccount.google.com/apppasswords, nommez-le « MissionPilot », cliquez sur Créer et copiez le mot de passe de 16 caractères.",
+   "Tableau de bord Render → le service missionpilot-ai → Environment → ajoutez SMTP_USER (votre adresse Gmail), SMTP_PASSWORD (le mot de passe d'application) et EMAIL_TO (destinataire des e-mails de la démo et de l'administrateur). Enregistrez : Render redémarre le site.",
+   "Dans MissionPilot : Paramètres → Envoi d'e-mails → Envoyer un e-mail de test. Le journal affiche Envoyé ou l'erreur exacte."
+  ],
+  "autorisks_t": "Risques automatiques et verdict",
+  "autorisks_s": [
+   "Le verdict de l'Accueil (Dans les temps / À risque / Critique) et ses 3 principales raisons sont recalculés à chaque ouverture de page.",
+   "Les risques marqués ⚙ Automatique viennent de règles sur vos données : charge au-delà de 40 h × disponibilité, tâches du chemin critique en retard, plus de 3 points de retard sur le plan, CPI ou SPI sous 0,95, jalons à risque.",
+   "Chacun indique pourquoi il a été levé. Quand la cause disparaît, il devient « Condition levée » ; s'il revient, il se rouvre.",
+   "Seule une personne peut marquer un risque comme Confirmé (colonne Preuve)."
+  ],
+  "whatif_t": "Et si… ? : prévoir une absence",
+  "whatif_s": [
+   "Ouvrez Et si… ?, choisissez une personne et les dates.",
+   "Voyez quelles tâches bougent, la nouvelle date de fin et qui a des heures libres pour reprendre.",
+   "Confiez une tâche à quelqu'un d'autre (il reçoit un e-mail) ou enregistrez les nouvelles dates. Rien ne change avant votre décision."
+  ],
+  "notes_t": "Transformer des notes de réunion en tâches",
+  "notes_s": [
+   "Ouvrez Notes de réunion → tâches et collez les notes (anglais, français ou marathi).",
+   "Cliquez sur Trouver les actions : responsable, échéance et priorité sont détectés.",
+   "Modifiez l'aperçu, décochez ce que vous ne voulez pas, puis créez les tâches. Les responsables reçoivent un e-mail."
+  ],
+  "import_t": "Importer depuis Excel, Trello ou Jira",
+  "import_s": [
+   "Projets → Importer un projet.",
+   "Envoyez un fichier .xlsx/.csv, un export JSON Trello ou un export CSV Jira (des modèles sont fournis).",
+   "Vérifiez l'association des colonnes et l'aperçu (erreurs listées par ligne), puis créez le projet."
+  ],
+  "client_t": "Partager une page en lecture seule avec votre client",
+  "client_s": [
+   "Accueil → Lien client → Créer.",
+   "Le client voit le verdict, l'avancement, les jalons et le Gantt — jamais le budget, les risques internes ou les e-mails.",
+   "Fixez une expiration, consultez chaque visite dans le journal et révoquez le lien à tout moment."
   ]
  },
  "tour": {
@@ -647,7 +701,17 @@
   "translated": {
    "one": "{n} texte traduit",
    "other": "{n} textes traduits"
-  }
+  },
+  "reassigned": "Tâche réaffectée — le nouveau responsable reçoit un e-mail.",
+  "confirm_apply_dates": "Enregistrer les nouvelles dates ? Les tâches dépendantes vont bouger.",
+  "dates_applied": "{n} tâche(s) replanifiée(s).",
+  "link_copied": "Lien créé et copié.",
+  "confirm_revoke": "Révoquer ce lien ? Le client ne verra plus la page.",
+  "choose_file": "Choisissez d'abord un fichier.",
+  "reading_file": "Lecture du fichier…",
+  "creating": "Création du projet…",
+  "sending": "Envoi…",
+  "reading_notes": "Lecture des notes…"
  },
  "common": {
   "back": "Retour",
@@ -676,5 +740,353 @@
   "empty": "Aucun projet pour le moment. Créez le premier — une phrase suffit.",
   "open": "Ouvrir",
   "delete": "Supprimer"
+ },
+ "verdict": {
+  "on_track": "Dans les temps",
+  "at_risk": "À risque",
+  "critical": "Critique",
+  "help": "Recalculé à partir des données du projet à chaque ouverture de la page.",
+  "top_reasons": "Principales raisons",
+  "more": "+{n} autres raisons.",
+  "r": {
+   "over_budget": "Plus d'argent dépensé que le budget total.",
+   "behind": "L'avancement a {pts} points de retard sur le plan.",
+   "overdue_crit": {
+    "one": "{n} tâche en retard est sur le chemin critique (elle décale la date de fin).",
+    "other": "{n} tâches en retard sont sur le chemin critique (elles décalent la date de fin)."
+   },
+   "overdue": {
+    "one": "{n} tâche est en retard.",
+    "other": "{n} tâches sont en retard."
+   },
+   "spi": "L'indice de délai (SPI) est de {v} — moins de travail fait que prévu.",
+   "cpi": "L'indice de coût (CPI) est de {v} — le travail coûte plus que prévu.",
+   "overload": "{name} est planifié(e) {h} h sur une semaine (au-delà de sa capacité).",
+   "milestone": "Jalon à risque : {name}.",
+   "blocked": {
+    "one": "{n} tâche est bloquée.",
+    "other": "{n} tâches sont bloquées."
+   },
+   "critical_risks": {
+    "one": "{n} risque critique est ouvert.",
+    "other": "{n} risques critiques sont ouverts."
+   }
+  },
+  "g": {
+   "progress": "L'avancement a {pts} points d'avance sur le plan.",
+   "close": "L'avancement est proche du plan ({pts} points).",
+   "no_overdue": "Aucune tâche en retard.",
+   "budget": "Les dépenses correspondent au travail réalisé."
+  }
+ },
+ "band": {
+  "low": "Faible",
+  "medium": "Moyen",
+  "high": "Élevé",
+  "critical": "Critique"
+ },
+ "evidence": {
+  "hypothesis": "Hypothèse",
+  "signal": "Signal d'alerte",
+  "confirmed": "Confirmé"
+ },
+ "auto": {
+  "overload": {
+   "t": "{name} est surchargé(e)",
+   "m": "Confiez une tâche à quelqu'un de disponible (voir Et si… ?), décalez une échéance ou réduisez le périmètre de la semaine.",
+   "why": "{name} est planifié(e) {h} h la semaine du {week} (capacité {cap} h) ; semaines surchargées à venir : {weeks}."
+  },
+  "overdue_crit": {
+   "t": "Des tâches du chemin critique sont en retard",
+   "m": "Débloquez ou renforcez ces tâches en priorité : chaque jour de retard décale la date de fin.",
+   "why": "{n} tâche(s) en retard sur le chemin critique ({tasks}), jusqu'à {days} jours ouvrés de retard."
+  },
+  "behind": {
+   "t": "Le projet est en retard sur le plan",
+   "m": "Replanifiez les deux prochaines semaines, protégez le chemin critique et vérifiez que la date de fin reste réaliste.",
+   "why": "{actual} % réalisé aujourd'hui alors que le plan prévoyait {planned} % ({pts} points de retard)."
+  },
+  "cpi": {
+   "t": "Le travail coûte plus que prévu",
+   "m": "Revoyez les dépenses réelles par catégorie et les estimations restantes ; agissez avant d'épuiser la réserve.",
+   "why": "Indice de performance des coûts CPI = {v} (sous 0,95) : chaque euro dépensé a produit moins d'un euro de travail prévu."
+  },
+  "spi": {
+   "t": "La performance du planning est faible",
+   "m": "Identifiez les tâches qui prennent du retard, levez les blocages et vérifiez le plan de charge.",
+   "why": "Indice de performance des délais SPI = {v} (sous 0,95) : moins de travail réalisé que prévu à ce jour."
+  },
+  "milestone": {
+   "t": "Le jalon {wbs} risque d'être manqué",
+   "m": "Terminez ou réaffectez les tâches en retard avant le jalon, ou convenez d'une nouvelle date.",
+   "why": "Jalon {wbs} le {date} : {n} tâche(s) en amont sont en retard ou bloquées ; la personne la plus chargée a encore {need} jours de travail et il reste {avail} jours ouvrés."
+  }
+ },
+ "ai": {
+  "suggests": "L'IA suggère",
+  "apply": "Appliquer",
+  "agrees": "L'IA est d'accord",
+  "human_decides": "Suggestion de l'IA — une personne décide.",
+  "model_on": "Modèle : {model}, gratuit, sur ce serveur.",
+  "model_off": "Modèle IA non chargé — les suggestions utilisent seulement des règles par mots-clés.",
+  "dups_title": "Risques peut-être en double",
+  "similar": "{pct} similaires",
+  "close_dup": "Clore {rid} comme doublon",
+  "chip_help": "Catégorie suggérée par le modèle IA du serveur (confiance {pct}).",
+  "tasks_note": "✦ = catégorie suggérée par le modèle IA.",
+  "model_row": "Modèle de suggestions IA",
+  "model_row_help": "Gratuit, pré-entraîné, multilingue (EN/FR/मराठी). Tourne sur le serveur ; aucune donnée ne sort."
+ },
+ "aicat": {
+  "scope": "Périmètre",
+  "schedule": "Planning",
+  "cost": "Coûts",
+  "security": "Sécurité",
+  "gdpr": "RGPD / vie privée",
+  "people": "Personnes",
+  "supplier": "Fournisseur",
+  "technical": "Technique"
+ },
+ "whatif": {
+  "desc": "Simulez une absence avant qu'elle arrive : quelles tâches bougent, la nouvelle date de fin et qui pourrait reprendre. Rien ne change avant votre décision.",
+  "question": "Si cette personne est absente…",
+  "person": "Membre de l'équipe",
+  "from": "Du",
+  "to": "Au",
+  "simulate": "Simuler",
+  "nothing_saved": "Simulation seulement — rien n'est enregistré.",
+  "k_days": "Jours ouvrés perdus",
+  "k_moved": "Tâches décalées",
+  "k_direct": {
+   "one": "{n} de cette personne",
+   "other": "{n} de cette personne"
+  },
+  "k_end": "Nouvelle date de fin",
+  "k_was": "au lieu du {date}",
+  "k_delay": "Retard du projet",
+  "k_crit": {
+   "one": "{n} tâche du chemin critique bouge",
+   "other": "{n} tâches du chemin critique bougent"
+  },
+  "no_impact": "{name} n'a pas de travail en cours sur ces dates : aucun impact.",
+  "summary_late": "Si {name} est absent(e), {n} tâche(s) bougent et le projet finit {days} jour(s) ouvré(s) plus tard — sauf si quelqu'un reprend.",
+  "summary_ok": "Si {name} est absent(e), {n} tâche(s) bougent mais la date de fin ne change pas (il y a de la marge).",
+  "old_end": "Fin actuelle",
+  "new_end": "Nouvelle fin",
+  "delay": "Retard (jours)",
+  "why": "Pourquoi",
+  "replace": "Qui pourrait reprendre",
+  "why_absent": "{n} jour(s) ouvré(s) d'absence",
+  "why_depends": "Attend une tâche retardée",
+  "free_h": "{h} h libres",
+  "nobody": "Personne de libre",
+  "decide": "Votre décision",
+  "decide_help": "Confiez les tâches à quelqu'un d'autre (boutons ci-dessus — la personne reçoit un e-mail), ou gardez-les et enregistrez les nouvelles dates (les tâches dépendantes bougent, l'équipe reçoit un e-mail).",
+  "apply_dates": "Garder la personne, enregistrer les nouvelles dates",
+  "reset": "Nouvelle simulation",
+  "empty": "Choisissez un membre et des dates, puis cliquez sur Simuler.",
+  "link": "Simuler une absence"
+ },
+ "notes": {
+  "desc": "Collez des notes de réunion en anglais, français ou marathi. MissionPilot trouve les actions — tâche, responsable, échéance, priorité. Vous les vérifiez avant toute création.",
+  "paste": "Notes de réunion",
+  "placeholder": "ex. Lucas va finir les règles de détection avant vendredi (urgent)…",
+  "extract": "Trouver les actions",
+  "example_btn": "Charger un exemple",
+  "engine_claude": "Moteur : Claude IA.",
+  "engine_rules_model": "Moteur : règles + modèle IA gratuit sur le serveur.",
+  "engine_rules": "Moteur : règles.",
+  "preview": "Aperçu",
+  "preview_help": "Décochez ce que vous ne voulez pas ; modifiez n'importe quelle cellule.",
+  "owner": "Responsable",
+  "deadline": "Échéance",
+  "phase": "Phase",
+  "create": "Créer les tâches cochées",
+  "nobody": "— personne —",
+  "example": "Comité de pilotage — notes\n- Lucas will finish the detection rules by Friday (urgent)\n- Sofia doit mettre à jour le document d'architecture avant le 3 novembre\nAction : Anaya prépare les slides du comité demain\nSofia doit corriger les bugs de connexion avant mardi.\nLa réunion s'est bien passée, tout le monde était présent.",
+  "created": "{n} tâche(s) créée(s).",
+  "nothing": "Aucune action trouvée. Écrivez une action par ligne, avec un nom et une date.",
+  "count": "{n} action(s) trouvée(s).",
+  "empty": "Collez d'abord les notes de réunion.",
+  "link": "Ajouter des tâches depuis des notes de réunion"
+ },
+ "client": {
+  "button": "Lien client",
+  "title": "Lien de partage client",
+  "desc": "Une page secrète en lecture seule pour votre client : verdict, avancement, jalons et diagramme de Gantt.",
+  "new": "Créer un lien",
+  "shows": "Le client voit : verdict, avancement, jalons, Gantt. Le client ne voit jamais : budget, risques internes, e-mails de l'équipe.",
+  "label": "Nom (pour vous)",
+  "label_ph": "ex. Comité de pilotage banque",
+  "expires": "Expire",
+  "days": "après {n} jours",
+  "never": "jamais",
+  "create": "Créer et copier le lien",
+  "link": "Lien",
+  "created": "Créé le",
+  "views": "Vues",
+  "log": "Journal des visites",
+  "st": {
+   "active": "Actif",
+   "expired": "Expiré",
+   "revoked": "Révoqué"
+  },
+  "revoke": "Révoquer",
+  "none": "Aucun lien client pour l'instant.",
+  "privacy": "Chaque visite est enregistrée avec l'heure, un numéro de visiteur pseudonyme et le navigateur (aucune adresse IP n'est stockée). Révoquez un lien à tout moment.",
+  "open": "Ouvrir",
+  "view_title": "État du projet",
+  "gone": "Ce lien a expiré ou a été révoqué. Demandez-en un nouveau au chef de projet.",
+  "readonly_note": "État du projet en lecture seule, partagé par le chef de projet.",
+  "as_of": "État au {date}",
+  "footer": "Réalisé avec MissionPilot AI."
+ },
+ "imp": {
+  "button": "Importer un projet",
+  "title": "Importer un projet existant",
+  "desc": "Reprenez un projet depuis Excel/CSV, Trello ou Jira. Vous associez les colonnes, vérifiez l'aperçu, puis créez le projet.",
+  "step1": "Envoyer le fichier",
+  "formats": "Excel (.xlsx), CSV, export de tableau Trello (.json), export Jira (.csv). Jusqu'à 2 000 lignes, 5 Mo.",
+  "upload": "Envoyer et lire",
+  "tpl_xlsx": "Modèle Excel",
+  "tpl_csv": "Modèle CSV",
+  "how_export": "Comment exporter depuis Trello ou Jira ?",
+  "how_trello": "Trello : menu du tableau → … Plus → Imprimer, exporter et partager → Exporter en JSON.",
+  "how_jira": "Jira : Filtres → rechercher les tickets → Exporter → Exporter en CSV (tous les champs ou champs actuels).",
+  "how_excel": "Excel / MS Project : une ligne par tâche avec une ligne d'en-tête (tâche, responsable, début, fin, avancement…). Notre modèle montre le format.",
+  "step2": "Associer les colonnes",
+  "source": {
+   "csv": "Fichier CSV",
+   "jira": "Export Jira",
+   "trello": "Tableau Trello",
+   "excel": "Fichier Excel"
+  },
+  "rows": "{n} lignes",
+  "f": {
+   "title": "Nom de la tâche",
+   "phase": "Phase / groupe / liste",
+   "assignee": "Responsable",
+   "start": "Date de début",
+   "end": "Date de fin / échéance",
+   "progress": "Avancement %",
+   "status": "Statut",
+   "priority": "Priorité"
+  },
+  "ignore": "non utilisé",
+  "name": "Nom du projet",
+  "budget": "Budget (facultatif)",
+  "currency": "Devise",
+  "check": "Vérifier l'association",
+  "sample": "Premières lignes du fichier",
+  "step3": "Vérifier et créer",
+  "ready": "{n} tâche(s) prête(s) à importer.",
+  "n_errors": "{n} ligne(s) avec erreurs seront ignorées :",
+  "row": "Ligne {n}",
+  "guessed": "Pas de date dans le fichier : 5 jours ouvrés ont été planifiés après la tâche précédente du responsable.",
+  "phase_note": "La phase est suggérée à partir du nom du groupe/de la liste et de la tâche (mots-clés + modèle IA du serveur). Vous pourrez déplacer les tâches ensuite.",
+  "create": "Créer le projet ({n} tâches)",
+  "done": "Projet importé : {n} tâches. Risques, lignes budgétaires et verdict ont été ajoutés automatiquement.",
+  "err": {
+   "too_big": "Le fichier dépasse 5 Mo.",
+   "type": "Utilisez un fichier .xlsx, .csv ou .json Trello.",
+   "empty": "Aucune ligne trouvée dans le fichier.",
+   "read": "Le fichier n'a pas pu être lu. Enregistrez-le à nouveau en .xlsx ou .csv (UTF-8).",
+   "trello": "Ce JSON n'est pas un export de tableau Trello.",
+   "no_title": "pas de nom de tâche",
+   "bad_date": "date non comprise (utilisez AAAA-MM-JJ ou JJ/MM/AAAA)",
+   "end_before_start": "la date de fin est avant la date de début",
+   "bad_progress": "l'avancement doit être un nombre de 0 à 100",
+   "nofile": "Choisissez d'abord un fichier.",
+   "map_title": "Choisissez la colonne qui contient le nom de la tâche."
+  }
+ },
+ "mail": {
+  "subject": {
+   "assigned": "[{project}] Nouvelle tâche pour {name} : {task}",
+   "deadline": "[{project}] Échéance modifiée : {task}",
+   "blocked": "[{project}] Tâche bloquée : {task}",
+   "overdue": {
+    "one": "[{project}] {n} tâche est maintenant en retard",
+    "other": "[{project}] {n} tâches sont maintenant en retard"
+   },
+   "overload": "[{project}] {name} est surchargé(e)",
+   "risk": "[{project}] Nouveau risque {band} : {risk}",
+   "weekly": "[{project}] Point hebdomadaire — {date}",
+   "test": "MissionPilot AI — e-mail de test",
+   "absence": "[{project}] Absence prévue : {name}"
+  },
+  "assigned": "{name}, la tâche « {task} » vous est confiée ({start} → {end}).",
+  "reassigned_from": "Elle était confiée à {old} auparavant.",
+  "deadline": "La date de fin de « {task} » passe du {old} au {new}. Tâches dépendantes décalées : {n}.",
+  "new_end": "Le projet se termine maintenant le {date}.",
+  "blocked": "« {task} » ({name}) est marquée comme bloquée. Vérifiez ce qu'il faut pour la débloquer.",
+  "risk": "{rid} {risk} — score {score} ({band}).",
+  "why": "Pourquoi : {why}",
+  "action": "Action proposée : {action}",
+  "overdue_intro": {
+   "one": "Cette tâche a dépassé sa date de fin et n'est pas terminée :",
+   "other": "Ces {n} tâches ont dépassé leur date de fin et ne sont pas terminées :"
+  },
+  "due": "échéance",
+  "overload": "{name} est planifié(e) {h} h la semaine du {week} (capacité {cap} h).",
+  "overload_fix": "Ouvrez Et si… ? pour voir qui pourrait reprendre, ou décalez une échéance.",
+  "weekly_intro": "État au {date} : {verdict}.",
+  "weekly_progress": "Avancement {actual} (plan {planned}) · {done}/{total} tâches terminées · {overdue} en retard.",
+  "weekly_budget": "Budget consommé {used} sur {total} · CPI {cpi} · SPI {spi}.",
+  "weekly_reasons": "Pourquoi :",
+  "weekly_next": "Les 7 prochains jours :",
+  "weekly_risks": "Principaux risques ouverts :",
+  "weekly_attach": "Le rapport hebdomadaire complet est joint (Word).",
+  "test": "Cet e-mail de test montre que l'envoi par Gmail fonctionne. Envoyé le {time}.",
+  "open": "Ouvrir dans MissionPilot",
+  "footer": "Vous recevez cet e-mail car vous êtes propriétaire de ce projet dans MissionPilot AI. Désactivez les e-mails dans Paramètres.",
+  "footer_demo": "Espace de démonstration : les e-mails partent seulement vers l'adresse de l'administrateur du site (EMAIL_TO), jamais vers des adresses saisies dans la démo.",
+  "absence": "{name} est absent(e) du {start} au {end}. {n} tâche(s) ont été replanifiées.",
+  "absence_end": "Date de fin du projet : {old} → {new}.",
+  "bad_address": "Cette adresse e-mail ne semble pas valide.",
+  "weekly_button": "Envoyer le point hebdo",
+  "settings_title": "E-mails",
+  "pref_alerts": "M'envoyer des e-mails en temps réel (affectations, échéances modifiées, tâches bloquées/en retard, surcharge, nouveaux risques élevés)",
+  "pref_weekly": "Point hebdomadaire chaque lundi à 8 h (heure de Paris)",
+  "status_title": "Envoi d'e-mails (Gmail)",
+  "configured": "Gmail connecté",
+  "goes_to": "Vos e-mails partent vers {to}.",
+  "not_configured": "Non connecté",
+  "not_configured_help": "L'administrateur du serveur doit définir SMTP_USER et SMTP_PASSWORD (un mot de passe d'application Gmail). D'ici là, chaque e-mail est journalisé comme « non envoyé ».",
+  "test_button": "Envoyer un e-mail de test",
+  "howto_link": "Comment connecter Gmail",
+  "log_title": "Derniers e-mails",
+  "log_empty": "Aucun e-mail pour l'instant.",
+  "c": {
+   "when": "Quand",
+   "event": "Événement",
+   "to": "À",
+   "subject": "Objet"
+  },
+  "ev": {
+   "task_assigned": "Tâche affectée",
+   "deadline_changed": "Échéance modifiée",
+   "task_blocked": "Tâche bloquée",
+   "risk_raised": "Nouveau risque élevé",
+   "overdue": "Tâches en retard",
+   "overload": "Surcharge",
+   "weekly_report": "Point hebdo",
+   "test": "Test",
+   "absence": "Absence"
+  },
+  "st": {
+   "queued": "E-mail en cours d'envoi…",
+   "sent": "E-mail envoyé.",
+   "failed": "Échec de l'envoi.",
+   "not_configured": "Non envoyé : Gmail n'est pas encore connecté sur le serveur.",
+   "skipped": "Non envoyé (aucun destinataire valide ou limite quotidienne)."
+  },
+  "st_short": {
+   "queued": "Envoi",
+   "sent": "Envoyé",
+   "failed": "Échec",
+   "not_configured": "Non connecté",
+   "skipped": "Ignoré"
+  }
  }
 }

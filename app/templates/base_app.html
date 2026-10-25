@@ -40,7 +40,9 @@
       {% endif %}
       <a class="btn sm primary" href="/app/new" id="btn-new-project">{{ icon('plus') }}<span class="hide-sm">{{ t('nav.new_project') }}</span></a>
       <span class="grow"></span>
-      {% if ai_on %}<span class="badge b-ai hide-sm" title="{{ t('app.engine_ai_help') }}">✦ Claude</span>{% endif %}
+      {% if ai_on %}<span class="badge b-ai hide-sm" title="{{ t('app.engine_ai_help') }}">✦ Claude AI</span>
+      {% else %}<a class="badge b-tpl hide-sm" href="/app/settings#system" title="{{ t('app.template_help') }}">{{ t('app.template_badge') }}</a>{% endif %}
+      {% if ml_on %}<span class="badge b-ml hide-sm" title="{{ t('app.ml_help') }}">◆ {{ t('app.ml_badge') }}</span>{% endif %}
       <button class="btn sm" id="tour-btn" onclick="MPtour.start(0,true)" title="{{ t('tour.button_help') }}">{{ icon('speaker') }}<span class="hide-sm">{{ t('tour.button') }}</span></button>
       <label class="sr" for="lang-switch">{{ t('nav.language') }}</label>
       <select id="lang-switch" onchange="MPapp.setLang(this.value)">

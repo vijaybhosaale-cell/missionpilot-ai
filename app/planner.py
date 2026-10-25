@@ -223,6 +223,35 @@ def to_minor(amount: float, currency: str) -> int:
     return int(round(float(amount) * (1 if currency == "JPY" else 100)))
 
 
+def new_project_id() -> int:
+    """Random 9-digit project id, so project addresses cannot be guessed by counting (access is owner-only anyway)."""
+    import secrets
+    while True:
+        pid = 100_000_000 + secrets.randbelow(900_000_000)
+        if not db.q1("SELECT 1 FROM projects WHERE id=?", (pid,)):
+            return pid
+
+
+def insert_task(pid: int, phase_code: str, title: str, start: dt.date, end: dt.date, assignee_id: int | None,
+                priority: str = "medium", progress: int = 0, code_prefix: str = "mn") -> int:
+    """Adds one task at the end of a phase (used by meeting notes)."""
+    ph = db.q1("SELECT * FROM phases WHERE project_id=? AND code=?", (pid, phase_code)) or \
+        db.q1("SELECT * FROM phases WHERE project_id=? ORDER BY seq", (pid,))
+    n_in_phase = db.q1("SELECT COUNT(*) n FROM tasks WHERE phase_id=?", (ph["id"],))["n"]
+    seq = db.q1("SELECT COALESCE(MAX(seq),0) s FROM tasks WHERE project_id=?", (pid,))["s"] + 1
+    start = next_workday(start)
+    end = max(start, end)
+    days = max(1, workdays_between(start, end))
+    status = "done" if progress >= 100 else ("in_progress" if progress else "todo")
+    tid = db.ex("""INSERT INTO tasks(project_id,phase_id,seq,wbs,code,title_text,start_date,end_date,duration_days,progress,status,
+                   priority,assignee_id,is_milestone,effort_hours,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?)""",
+                (pid, ph["id"], seq, f"{ph['seq']}.{n_in_phase + 1}", f"{code_prefix}{seq}", title[:200], start.isoformat(),
+                 end.isoformat(), days, progress, status, priority, assignee_id, days * 8, db.now()))
+    last = db.q1("SELECT MAX(end_date) e FROM tasks WHERE project_id=?", (pid,))["e"]
+    db.ex("UPDATE projects SET end_date=? WHERE id=?", (last, pid))
+    return tid
+
+
 def create_project(owner_id: int, answers: dict, plan: dict | None = None) -> int:
     ptype = answers.get("type") or "generic"
     plan = plan or template_plan(ptype)
@@ -236,10 +265,10 @@ def create_project(owner_id: int, answers: dict, plan: dict | None = None) -> in
     end = max(t["end"] for t in plan["tasks"])
     now = db.now()
 
-    pid = db.ex("""INSERT INTO projects(owner_id,name,name_key,description,description_key,project_type,canonical_locale,currency,
+    pid = db.ex("""INSERT INTO projects(id,owner_id,name,name_key,description,description_key,project_type,canonical_locale,currency,
                    budget_minor,team_size,start_date,end_date,engine,answers_json,created_at)
-                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (owner_id, answers.get("name") or "", answers.get("name_key"), answers.get("description") or "",
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (new_project_id(), owner_id, answers.get("name") or "", answers.get("name_key"), answers.get("description") or "",
                  answers.get("description_key"), ptype, answers.get("locale", "en"), currency, budget_minor,
                  len(members), next_workday(start).isoformat(), end.isoformat(), plan.get("engine", "template"),
                  json.dumps(answers, ensure_ascii=False), now))

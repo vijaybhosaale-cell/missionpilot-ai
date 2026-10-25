@@ -197,13 +197,76 @@ CREATE TABLE IF NOT EXISTS missing_translations (
   PRIMARY KEY (key, locale)
 );
 
+CREATE TABLE IF NOT EXISTS email_log (
+  id INTEGER PRIMARY KEY,
+  project_id INTEGER,
+  user_id INTEGER,
+  event TEXT NOT NULL,
+  recipients TEXT NOT NULL DEFAULT '',
+  subject TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL,            -- queued | sent | failed | not_configured | skipped
+  error TEXT,
+  created_at TEXT NOT NULL,
+  sent_at TEXT
+);
+
+-- one row per notification already sent (so the same alert is never e-mailed twice)
+CREATE TABLE IF NOT EXISTS notified (
+  project_id INTEGER NOT NULL,
+  key TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (project_id, key)
+);
+
+CREATE TABLE IF NOT EXISTS client_links (
+  id INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  token TEXT UNIQUE NOT NULL,
+  label TEXT NOT NULL DEFAULT '',
+  created_by INTEGER,
+  created_at TEXT NOT NULL,
+  expires_at TEXT,
+  revoked_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS client_link_views (
+  id INTEGER PRIMARY KEY,
+  link_id INTEGER NOT NULL REFERENCES client_links(id) ON DELETE CASCADE,
+  at TEXT NOT NULL,
+  visitor TEXT NOT NULL DEFAULT '',
+  agent TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS imports (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  filename TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL,
+  columns_json TEXT NOT NULL,
+  rows_json TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS ix_tasks_project ON tasks(project_id);
+CREATE INDEX IF NOT EXISTS ix_email_log ON email_log(created_at);
 CREATE INDEX IF NOT EXISTS ix_activity_project ON activity(project_id, at);
 CREATE INDEX IF NOT EXISTS ix_docs_project ON documents(project_id, kind, doc_type);
 """
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 _local = threading.local()
+
+# columns added after v1 (added in place, so existing databases keep their data)
+ADD_COLUMNS = [
+    ("risks", "source", "TEXT NOT NULL DEFAULT 'plan'"),       # plan | auto | user
+    ("risks", "rule_key", "TEXT"),                              # e.g. overload:12 (auto risks only)
+    ("risks", "params_json", "TEXT"),                           # numbers/dates behind the explanation
+    ("risks", "evidence", "TEXT NOT NULL DEFAULT 'hypothesis'"),  # hypothesis | signal | confirmed
+    ("risks", "updated_at", "TEXT"),
+    ("risks", "cleared_at", "TEXT"),
+    ("users", "email_notify", "INTEGER NOT NULL DEFAULT 1"),
+    ("users", "weekly_report", "INTEGER NOT NULL DEFAULT 1"),
+]
 
 
 def now() -> str:
@@ -229,9 +292,16 @@ def connect() -> sqlite3.Connection:
 def init():
     con = connect()
     con.executescript(SCHEMA)
+    for table, col, ddl in ADD_COLUMNS:
+        cols = {r["name"] for r in con.execute(f"PRAGMA table_info({table})")}
+        if col not in cols:
+            con.execute(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_risk_rule ON risks(project_id, rule_key) WHERE rule_key IS NOT NULL")
     row = con.execute("SELECT version FROM schema_version").fetchone()
     if row is None:
         con.execute("INSERT INTO schema_version(version) VALUES (?)", (SCHEMA_VERSION,))
+    else:
+        con.execute("UPDATE schema_version SET version=?", (SCHEMA_VERSION,))
     con.commit()
 
 

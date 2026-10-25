@@ -20,3 +20,11 @@ services:
         sync: false
       - key: ANTHROPIC_MODEL
         value: claude-sonnet-5-5
+      - key: SMTP_USER          # Gmail address that sends the e-mails
+        sync: false
+      - key: SMTP_PASSWORD      # Gmail App password (16 characters), never the normal password
+        sync: false
+      - key: EMAIL_TO           # receives demo-workspace e-mails and admin copies
+        sync: false
+      - key: CRON_SECRET        # optional: protects /api/cron/* (put the same value in GitHub secret MP_CRON_SECRET)
+        sync: false

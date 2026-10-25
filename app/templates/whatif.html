@@ -1,0 +1,62 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header %}
+{% block title %}{{ t('nav.whatif') }}{% endblock %}
+{% block content %}
+{% call header(9, t('nav.whatif'), t('whatif.desc')) %}{% endcall %}
+<form class="card" method="get" id="whatif-form">
+  <h2>{{ t('whatif.question') }}</h2>
+  <div class="form-row">
+    <div><label class="f" for="wi-member">{{ t('whatif.person') }}</label>
+      <select id="wi-member" name="member" style="width:100%" required>
+        <option value="">—</option>
+        {% for mm in d.members %}<option value="{{ mm.id }}" {{ 'selected' if mid == mm.id else '' }}>{{ mm.name }} · {{ mm.role }}</option>{% endfor %}
+      </select></div>
+    <div><label class="f" for="wi-from">{{ t('whatif.from') }}</label><input id="wi-from" type="date" name="from" value="{{ d1 }}" style="width:100%"></div>
+    <div><label class="f" for="wi-to">{{ t('whatif.to') }}</label><input id="wi-to" type="date" name="to" value="{{ d2 }}" style="width:100%"></div>
+  </div>
+  <div class="actions" style="margin-top:12px"><button class="btn primary">{{ t('whatif.simulate') }}</button>
+    <span class="muted small">{{ t('whatif.nothing_saved') }}</span></div>
+</form>
+{% if sim %}
+<div class="kpis" id="whatif-result">
+  <div class="kpi"><div class="l">{{ t('whatif.k_days') }}</div><div class="v">{{ i18n.num(sim.lost_days, L) }}</div><div class="s">{{ i18n.date(sim.d1, L) }} → {{ i18n.date(sim.d2, L) }}</div></div>
+  <div class="kpi {{ 'bad' if sim.moved else 'good' }}"><div class="l">{{ t('whatif.k_moved') }}</div><div class="v">{{ i18n.num(sim.moved|length, L) }}</div><div class="s">{{ t('whatif.k_direct', n=sim.direct|length) }}</div></div>
+  <div class="kpi {{ 'bad' if sim.delay else 'good' }}"><div class="l">{{ t('whatif.k_end') }}</div><div class="v" style="font-size:19px">{{ i18n.date(sim.new_end, L) }}</div><div class="s">{{ t('whatif.k_was', date=i18n.date(sim.old_end, L)) }}</div></div>
+  <div class="kpi {{ 'bad' if sim.delay else 'good' }}"><div class="l">{{ t('whatif.k_delay') }}</div><div class="v">{{ t('common.days_short', n=i18n.num(sim.delay, L)) }}</div><div class="s">{{ t('whatif.k_crit', n=sim.critical_moved) }}</div></div>
+</div>
+<div class="card verdict {{ 'v-at_risk' if sim.delay else 'v-on_track' }}">
+  <p style="margin:0">{% if not sim.moved %}{{ t('whatif.no_impact', name=sim.member.name) }}{% elif sim.delay %}{{ t('whatif.summary_late', name=sim.member.name, n=sim.moved|length, days=sim.delay) }}{% else %}{{ t('whatif.summary_ok', name=sim.member.name, n=sim.moved|length) }}{% endif %}</p>
+</div>
+{% if sim.moved %}
+<div class="card" style="padding:0"><div class="tbl-wrap">
+<table class="tbl">
+  <thead><tr><th>{{ t('gantt.col_wbs') }}</th><th>{{ t('gantt.col_task') }}</th><th>{{ t('gantt.col_resource') }}</th><th>{{ t('whatif.old_end') }}</th><th>{{ t('whatif.new_end') }}</th><th class="num">{{ t('whatif.delay') }}</th><th>{{ t('whatif.why') }}</th><th>{{ t('whatif.replace') }}</th></tr></thead>
+  <tbody>
+  {% for x in sim.moved %}
+  <tr class="{{ 'late' if x.critical else '' }}">
+    <td class="muted">{{ x.task.wbs }}</td>
+    <td>{{ x.task.title }}{% if x.critical %} <span class="badge b-red">{{ t('gantt.critical_short') }}</span>{% endif %}</td>
+    <td class="nowrap">{{ x.task.assignee }}</td>
+    <td class="nowrap">{{ i18n.short_date(x.task.end, L) }}</td>
+    <td class="nowrap"><b>{{ i18n.short_date(x.new_end, L) }}</b></td>
+    <td class="num">+{{ i18n.num(x.delay, L) }}</td>
+    <td class="small">{{ t('whatif.why_absent', n=x.lost) if x.direct else t('whatif.why_depends') }}</td>
+    <td>{% if x.direct %}{% set rp = sim.replacements.get(x.task.id) %}
+      {% for c in rp.cands %}<div class="small" style="margin-bottom:4px"><button class="btn sm" onclick="MPapp.reassign({{ x.task.id }}, {{ c.member.id }})">→ {{ c.member.name }}</button>
+        <span class="muted">{{ c.member.role }} · {{ t('whatif.free_h', h=c.free) }}{% if c.enough %} ✓{% endif %}</span></div>{% endfor %}
+      {% if not rp.cands %}<span class="muted small">{{ t('whatif.nobody') }}</span>{% endif %}{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+<div class="card">
+  <h2>{{ t('whatif.decide') }}</h2>
+  <p class="muted small" style="margin-top:-6px">{{ t('whatif.decide_help') }}</p>
+  <div class="actions"><button class="btn primary" onclick="MPapp.whatifApply({{ sim.member.id }}, '{{ sim.d1 }}', '{{ sim.d2 }}')">{{ t('whatif.apply_dates') }}</button>
+    <a class="btn" href="/app/p/{{ pid }}/whatif">{{ t('whatif.reset') }}</a></div>
+</div>
+{% endif %}
+{% else %}
+<div class="card empty"><p>{{ t('whatif.empty') }}</p></div>
+{% endif %}
+{% endblock %}

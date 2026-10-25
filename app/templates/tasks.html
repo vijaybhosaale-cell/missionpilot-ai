@@ -43,7 +43,8 @@
     <tr class="st-row st-{{ 'overdue' if x.end < d.metrics.today and x.progress < 100 else x.status }}" data-task="{{ x.id }}">
       <td class="muted">{{ x.wbs }}</td>
       <td><span class="pdot p-{{ x.priority }}" title="{{ t('priority.' ~ x.priority) }}"></span>{% if x.milestone %}◆ {% endif %}{% if x.priority in ['critical','high'] %}<b>{{ x.title }}</b>{% else %}{{ x.title }}{% endif %}{{ trflag(x.tr_state, t) }}{% if x.id in d.metrics.critical and x.progress < 100 %} <span class="badge b-red" title="{{ t('gantt.legend_critical_help') }}">{{ t('gantt.critical_short') }}</span>{% endif %}
-        {% if x.desc %}<div class="muted small">{{ x.desc }}</div>{% endif %}</td>
+        {% if x.desc %}<div class="muted small">{{ x.desc }}</div>{% endif %}
+        {% set cg = cats.get(x.id) %}{% if cg and cg.label and cg.confidence >= 0.55 %}<span class="ai-chip" title="{{ t('ai.chip_help', pct=i18n.pct(100 * cg.confidence, L)) }}">✦ {{ t('aicat.' ~ cg.label) }}</span>{% endif %}</td>
       <td class="nowrap">{{ x.assignee }}</td>
       <td class="nowrap">{{ i18n.short_date(x.start, L) }}</td>
       <td class="nowrap"><input type="date" value="{{ x.end }}" onchange="MPapp.setEnd({{ x.id }}, this.value)" aria-label="{{ t('gantt.col_end') }}" style="padding:4px 6px"></td>
@@ -61,6 +62,6 @@
 </table>
 </div>
 </div>
-<p class="muted small">{{ t('tasks.reschedule_note') }}</p>
+<p class="muted small">{{ t('tasks.reschedule_note') }}{% if cats %} {{ t('ai.tasks_note') }}{% endif %} <a href="/app/p/{{ pid }}/notes">{{ t('notes.link') }} →</a></p>
 {% endif %}
 {% endblock %}

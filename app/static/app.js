@@ -60,6 +60,62 @@
       try { await post('/api/risks/' + id, { status }); toast(S('js.saved')); setTimeout(() => location.reload(), 500); }
       catch (e) { toast(e.message); }
     },
+    async riskField(id, data) {
+      try { await post('/api/risks/' + id, data); toast(S('js.saved')); setTimeout(() => location.reload(), 500); }
+      catch (e) { toast(e.message); }
+    },
+    async reassign(tid, mid) {
+      try { await post('/api/tasks/' + tid, { assignee_id: mid }); toast(S('js.reassigned')); setTimeout(() => location.reload(), 900); }
+      catch (e) { toast(e.message); }
+    },
+    async whatifApply(member, from, to) {
+      if (!confirm(S('js.confirm_apply_dates'))) return;
+      try { const r = await post('/api/projects/' + MP.pid + '/whatif', { member, from, to });
+        toast(S('js.dates_applied', { n: r.moved })); setTimeout(() => { location.href = '/app/p/' + MP.pid + '/gantt'; }, 1200); }
+      catch (e) { toast(e.message); }
+    },
+    async copy(text) {
+      try { await navigator.clipboard.writeText(text); } catch (e) { /* ignore */ }
+      toast(S('share.copied'));
+    },
+    async clientLink() {
+      try { const r = await post('/api/projects/' + MP.pid + '/client-link', { label: ($('#cl-label') || {}).value || '', days: +(($('#cl-days') || {}).value || 30) });
+        try { await navigator.clipboard.writeText(r.url); toast(S('js.link_copied')); } catch (e) { toast(S('js.saved')); }
+        setTimeout(() => location.reload(), 900); }
+      catch (e) { toast(e.message); }
+    },
+    async clientRevoke(id) {
+      if (!confirm(S('js.confirm_revoke'))) return;
+      try { await post('/api/projects/' + MP.pid + '/client-link', { revoke: id }); location.reload(); } catch (e) { toast(e.message); }
+    },
+    async importUpload() {
+      const f = $('#imp-file');
+      if (!f || !f.files.length) { toast(S('js.choose_file')); return; }
+      const fd = new FormData(); fd.append('file', f.files[0]);
+      toast(S('js.reading_file'), 8000);
+      try {
+        const r = await fetch('/api/import/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+        location.href = j.url;
+      } catch (e) { toast(e.message, 5000); }
+    },
+    async importCreate(id) {
+      const data = { id, name: ($('#imp-name') || {}).value, budget: ($('#imp-budget') || {}).value, currency: ($('#imp-cur') || {}).value };
+      $$('#imp-map select[name^="m_"]').forEach(s => { data[s.name] = s.value; });
+      toast(S('js.creating'), 15000);
+      try { const r = await post('/api/import/create', data); location.href = r.url; } catch (e) { toast(e.message, 5000); }
+    },
+    async testEmail() {
+      toast(S('js.sending'), 6000);
+      try { const r = await post('/api/settings/test-email'); toast(r.message + (r.error && !r.ok ? ' — ' + r.error : ''), 7000); setTimeout(() => location.reload(), 4000); }
+      catch (e) { toast(e.message, 5000); }
+    },
+    async weeklyNow() {
+      toast(S('js.sending'), 15000);
+      try { const r = await post('/api/projects/' + MP.pid + '/weekly-now'); toast(r.message + (r.to ? ' → ' + r.to : '') + (r.error && !r.ok ? ' — ' + r.error : ''), 8000); }
+      catch (e) { toast(e.message, 5000); }
+    },
     async setMember(id, data) {
       try { await post('/api/members/' + id, data); toast(S('js.saved')); }
       catch (e) { toast(e.message); }
@@ -400,6 +456,8 @@
     i: 0, voice: true, muted: false, el: null,
     pageUrl(page) { return MP.pid ? '/app/p/' + MP.pid + '/' + page : '/app/new'; },
     welcome(startAt) {
+      try { localStorage.setItem('mp_tour_seen', '1'); } catch (e) { /* private mode */ }
+      post('/api/tour', { step: Math.max(1, startAt || 1) }).catch(() => {});
       const w = document.createElement('div');
       w.className = 'welcome';
       w.innerHTML = `<div class="box" role="dialog" aria-modal="true"><div style="font-size:38px">✈</div><h3>${esc(S('tour.welcome_t'))}</h3>
@@ -503,8 +561,9 @@
     finish() {
       this.clear();
       window.removeEventListener('resize', this._place || (() => {}));
-      post('/api/tour', { done: true }).catch(() => {});
-      if (MP.tour) MP.tour.autostart = false;
+      try { fetch('/api/tour', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: true }), credentials: 'same-origin', keepalive: true }); } catch (e) { /* ignore */ }
+      try { localStorage.setItem('mp_tour_seen', '1'); } catch (e) { /* ignore */ }
+      if (MP.tour) { MP.tour.autostart = false; MP.tour.done = true; }
       const u = new URL(location.href);
       if (u.searchParams.has('tour')) { u.searchParams.delete('tour'); u.searchParams.delete('tv'); history.replaceState(null, '', u.pathname + u.search); }
     }
@@ -522,10 +581,49 @@
       if (MPtour.voice) await MPvoice.load();
       MPtour.go(step);
     } else if (MP.tour.autostart && !MP.tour.done) {
-      MPtour.start(1);
+      let seen = false;
+      try { seen = localStorage.getItem('mp_tour_seen') === '1'; } catch (e) { /* ignore */ }
+      if (!seen || u.searchParams.has('tour')) MPtour.start(1);
     }
   });
 
+
+
+  // ------------------------------------------------------------------ meeting notes -> tasks (preview, edit, confirm)
+  const MPnotes = {
+    items: [],
+    example() { const ta = $('#notes-text'); if (ta && window.MPNOTES) ta.value = MPNOTES.example; },
+    async parse() {
+      const text = ($('#notes-text') || {}).value || '';
+      toast(S('js.reading_notes'), 8000);
+      let r;
+      try { r = await post('/api/projects/' + MP.pid + '/notes/parse', { text }); } catch (e) { toast(e.message, 5000); return; }
+      this.items = r.items || [];
+      const N = window.MPNOTES;
+      const box = $('#notes-preview'), body = $('#notes-rows');
+      if (!this.items.length) { box.hidden = true; toast(N.nothing, 5000); return; }
+      const opt = (vals, names, sel) => vals.map((v, i) => `<option value="${esc(v)}" ${String(v) === String(sel) ? 'selected' : ''}>${esc(names[i])}</option>`).join('');
+      body.innerHTML = this.items.map((it, i) => `<tr data-i="${i}">
+        <td><input type="checkbox" class="n-on" checked aria-label="✓"></td>
+        <td><input type="text" class="n-title" value="${esc(it.title)}" style="width:100%;min-width:220px">${it.source ? `<div class="muted small">“${esc(it.source)}”</div>` : ''}</td>
+        <td><select class="n-owner"><option value="">${esc(N.none)}</option>${opt(N.members, N.names, it.owner_id)}</select></td>
+        <td><input type="date" class="n-deadline" value="${esc(it.deadline || '')}"></td>
+        <td><select class="n-prio">${opt(N.prios, N.prio_names, it.priority)}</select></td>
+        <td><select class="n-phase">${opt(N.phases, N.phase_names, it.phase)}</select></td></tr>`).join('');
+      box.hidden = false;
+      $('#notes-count').textContent = N.count.replace('{n}', this.items.length);
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+    async create() {
+      const items = $$('#notes-rows tr').filter(tr => $('.n-on', tr).checked).map(tr => ({
+        title: $('.n-title', tr).value, owner_id: $('.n-owner', tr).value, deadline: $('.n-deadline', tr).value,
+        priority: $('.n-prio', tr).value, phase: $('.n-phase', tr).value }));
+      if (!items.length) { toast(window.MPNOTES.nothing); return; }
+      try { const r = await post('/api/projects/' + MP.pid + '/notes/create', { items });
+        toast(window.MPNOTES.created.replace('{n}', r.created)); setTimeout(() => { location.href = r.url; }, 1000); }
+      catch (e) { toast(e.message, 5000); }
+    }
+  };
 
   // ------------------------------------------------------------------ burndown day picker
   const MPburn = {
@@ -581,5 +679,5 @@
   };
 
   window.MPburn = MPburn;
-  window.MPapp = MPapp; window.MPnew = MPnew; window.MPchat = MPchat; window.MPvoice = MPvoice; window.MPtour = MPtour;
+  window.MPapp = MPapp; window.MPnotes = MPnotes; window.MPnew = MPnew; window.MPchat = MPchat; window.MPvoice = MPvoice; window.MPtour = MPtour;
 })();

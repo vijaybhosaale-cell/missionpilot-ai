@@ -4,7 +4,11 @@
   "tagline": "AI project planning & tracking",
   "engine_ai": "Claude AI on",
   "engine_template": "Template engine",
-  "engine_ai_help": "Documents, plans and chat are written by Claude"
+  "engine_ai_help": "Documents, plans and chat are written by Claude",
+  "template_badge": "Template mode",
+  "template_help": "AI writing is off: plans and documents come from the professional template library. Add a Claude API key on the server to turn it on.",
+  "ml_badge": "AI suggestions",
+  "ml_help": "A small pre-trained model runs on this server for free: it suggests risk/task categories, finds duplicate risks and reads meeting notes. You always decide."
  },
  "nav": {
   "label": "Main navigation",
@@ -25,7 +29,9 @@
   "project_switch": "Switch project",
   "new_project": "New project",
   "language": "Language",
-  "logout": "Log out"
+  "logout": "Log out",
+  "whatif": "What-if",
+  "notes": "Meeting notes → tasks"
  },
  "auth": {
   "login": "Log in",
@@ -188,9 +194,9 @@
  },
  "health": {
   "green": "On track",
-  "amber": "Needs attention",
-  "red": "At risk",
-  "help": "Based on schedule index, cost index and overdue tasks."
+  "amber": "At risk",
+  "red": "Critical",
+  "help": "Verdict from schedule, cost, overdue work, workload and milestones."
  },
  "status": {
   "todo": "Not started",
@@ -323,7 +329,8 @@
   "remaining": "Remaining",
   "chart_title": "Budget: planned vs actual",
   "report_btn": "Budget report (PDF/Word)",
-  "help": "Tip: update actual spending every week so the cost index (CPI) stays meaningful."
+  "help": "Tip: update actual spending every week so the cost index (CPI) stays meaningful.",
+  "remaining_help": "Planned minus actual for each line (money not spent yet). The cost variance is shown by CPI."
  },
  "risks": {
   "desc": "Risk register with probability, impact, owner and mitigation. The matrix shows where the biggest risks are.",
@@ -333,13 +340,22 @@
   "matrix_help": "Red = act now, orange = watch closely, yellow = monitor, green = accept.",
   "summary": "Summary",
   "total": "Risks",
-  "high": "High (score ≥ 12)",
-  "report_btn": "Risk report (PDF/Word)"
+  "high": "High or critical (score ≥ 12)",
+  "report_btn": "Risk report (PDF/Word)",
+  "auto": "Automatic",
+  "auto_n": "Raised automatically",
+  "auto_help": "Raised by a rule from the project data (workload, overdue tasks, plan, CPI/SPI, milestones). It is a warning signal, never confirmed automatically, and it is cleared by itself when the cause disappears.",
+  "why": "Why:",
+  "cleared_on": "Condition cleared on {date}.",
+  "evidence": "Evidence",
+  "bands_note": "Score = probability × impact. Low 1–5 (green), medium 6–11 (yellow), high 12–15 (orange), critical 16–25 (red) — the same colours as the matrix."
  },
  "riskstatus": {
   "open": "Open",
   "mitigated": "Mitigated",
-  "closed": "Closed"
+  "closed": "Closed",
+  "cleared": "Condition cleared",
+  "cleared_help": "The data no longer shows this problem. It re-opens automatically if it comes back."
  },
  "riskcat": {
   "scope": "Scope",
@@ -579,6 +595,44 @@
    "Push the folder to GitHub.",
    "Create a Web Service on Render from the repository (Docker).",
    "Add SECRET_KEY (and ANTHROPIC_API_KEY for Claude) and deploy."
+  ],
+  "email_t": "Connect Gmail for real-time e-mails",
+  "email_s": [
+   "Google Account → Security → turn on 2-Step Verification.",
+   "Open myaccount.google.com/apppasswords, name it “MissionPilot”, press Create and copy the 16-character password.",
+   "Render dashboard → the missionpilot-ai service → Environment → add SMTP_USER (your Gmail address), SMTP_PASSWORD (the App password) and EMAIL_TO (where demo and admin e-mails go). Save: Render restarts the site.",
+   "In MissionPilot: Settings → E-mail sending → Send a test e-mail. The log shows Sent or the exact error."
+  ],
+  "autorisks_t": "Automatic risks and the verdict",
+  "autorisks_s": [
+   "The verdict on Home (On track / At risk / Critical) and its top 3 reasons are recalculated every time a page opens.",
+   "Risks marked ⚙ Automatic come from rules on your data: overload above 40 h × availability, overdue critical-path tasks, more than 3 points behind plan, CPI or SPI below 0.95, milestones at risk.",
+   "Each one says why it was raised. When the cause disappears it becomes “Condition cleared”; if it returns it re-opens.",
+   "Only a person can mark a risk as Confirmed (Evidence column)."
+  ],
+  "whatif_t": "What-if: plan an absence",
+  "whatif_s": [
+   "Open What-if, pick a person and the dates.",
+   "See which tasks move, the new end date and who has free hours to take over.",
+   "Give a task to someone else (they get an e-mail) or save the new dates. Nothing changes before you decide."
+  ],
+  "notes_t": "Turn meeting notes into tasks",
+  "notes_s": [
+   "Open Meeting notes → tasks and paste the notes (English, French or Marathi).",
+   "Press Find action items: owner, deadline and priority are detected.",
+   "Edit the preview, untick what you do not want, then create the tasks. Owners are e-mailed."
+  ],
+  "import_t": "Import from Excel, Trello or Jira",
+  "import_s": [
+   "Projects → Import a project.",
+   "Upload an .xlsx/.csv file, a Trello JSON export or a Jira CSV export (templates are provided).",
+   "Check the column mapping and the preview (errors are listed per row), then create the project."
+  ],
+  "client_t": "Share a read-only page with your client",
+  "client_s": [
+   "Home → Client link → Create.",
+   "The client sees the verdict, progress, milestones and Gantt chart — never the budget, internal risks or e-mails.",
+   "Set an expiry, see every visit in the log and revoke the link at any time."
   ]
  },
  "tour": {
@@ -647,7 +701,17 @@
   "translated": {
    "one": "{n} text translated",
    "other": "{n} texts translated"
-  }
+  },
+  "reassigned": "Task reassigned — the new owner is e-mailed.",
+  "confirm_apply_dates": "Save the new dates? Dependent tasks will move.",
+  "dates_applied": "{n} task(s) re-planned.",
+  "link_copied": "Link created and copied.",
+  "confirm_revoke": "Revoke this link? The client will no longer see the page.",
+  "choose_file": "Choose a file first.",
+  "reading_file": "Reading the file…",
+  "creating": "Creating the project…",
+  "sending": "Sending…",
+  "reading_notes": "Reading the notes…"
  },
  "common": {
   "back": "Back",
@@ -676,5 +740,353 @@
   "empty": "No projects yet. Create your first one — it takes one sentence.",
   "open": "Open",
   "delete": "Delete"
+ },
+ "verdict": {
+  "on_track": "On track",
+  "at_risk": "At risk",
+  "critical": "Critical",
+  "help": "Calculated from the project data every time you open the page.",
+  "top_reasons": "Top reasons",
+  "more": "+{n} more reasons.",
+  "r": {
+   "over_budget": "More money spent than the whole budget.",
+   "behind": "Progress is {pts} points behind plan.",
+   "overdue_crit": {
+    "one": "{n} overdue task is on the critical path (it moves the end date).",
+    "other": "{n} overdue tasks are on the critical path (they move the end date)."
+   },
+   "overdue": {
+    "one": "{n} task is overdue.",
+    "other": "{n} tasks are overdue."
+   },
+   "spi": "Schedule index (SPI) is {v} — less work done than planned.",
+   "cpi": "Cost index (CPI) is {v} — work costs more than planned.",
+   "overload": "{name} is planned for {h} h in one week (more than capacity).",
+   "milestone": "Milestone at risk: {name}.",
+   "blocked": {
+    "one": "{n} task is blocked.",
+    "other": "{n} tasks are blocked."
+   },
+   "critical_risks": {
+    "one": "{n} critical risk is open.",
+    "other": "{n} critical risks are open."
+   }
+  },
+  "g": {
+   "progress": "Progress is {pts} points ahead of plan.",
+   "close": "Progress is close to plan ({pts} points).",
+   "no_overdue": "No overdue tasks.",
+   "budget": "Spending is in line with the work done."
+  }
+ },
+ "band": {
+  "low": "Low",
+  "medium": "Medium",
+  "high": "High",
+  "critical": "Critical"
+ },
+ "evidence": {
+  "hypothesis": "Hypothesis",
+  "signal": "Warning signal",
+  "confirmed": "Confirmed"
+ },
+ "auto": {
+  "overload": {
+   "t": "{name} is overloaded",
+   "m": "Move a task to someone with free time (see What-if), shift a deadline or lower the scope for that week.",
+   "why": "{name} is planned for {h} h in the week of {week} (capacity {cap} h); overloaded weeks still to come: {weeks}."
+  },
+  "overdue_crit": {
+   "t": "Critical-path tasks are late",
+   "m": "Unblock or add people to these tasks first: every day they slip moves the end date.",
+   "why": "{n} overdue task(s) on the critical path ({tasks}), up to {days} working days late."
+  },
+  "behind": {
+   "t": "Project is behind plan",
+   "m": "Re-plan the next two weeks, protect the critical path and check whether the end date is still realistic.",
+   "why": "{actual} % done today while the plan expected {planned} % ({pts} points behind)."
+  },
+  "cpi": {
+   "t": "Work costs more than planned",
+   "m": "Review the actual spending per category and the remaining estimates; act before the contingency is used up.",
+   "why": "Cost performance index CPI = {v} (below 0.95): each euro spent produced less than a euro of planned work."
+  },
+  "spi": {
+   "t": "Schedule performance is low",
+   "m": "Find the tasks that fall behind, remove blockers and check the resource plan.",
+   "why": "Schedule performance index SPI = {v} (below 0.95): less work is done than planned by today."
+  },
+  "milestone": {
+   "t": "Milestone {wbs} may be missed",
+   "m": "Finish or re-assign the late tasks before the milestone, or agree a new milestone date.",
+   "why": "Milestone {wbs} on {date}: {n} task(s) before it are late or blocked; the busiest person still needs {need} days of work and {avail} working days are left."
+  }
+ },
+ "ai": {
+  "suggests": "AI suggests",
+  "apply": "Apply",
+  "agrees": "AI agrees",
+  "human_decides": "AI suggestion — a person decides.",
+  "model_on": "Model: {model}, running free on this server.",
+  "model_off": "AI model not loaded — suggestions use keyword rules only.",
+  "dups_title": "Possible duplicate risks",
+  "similar": "{pct} similar",
+  "close_dup": "Close {rid} as duplicate",
+  "chip_help": "Category suggested by the on-server AI model (confidence {pct}).",
+  "tasks_note": "✦ chips = category suggested by the AI model.",
+  "model_row": "AI suggestion model",
+  "model_row_help": "Free, pre-trained, multilingual (EN/FR/मराठी). Runs on the server; no data leaves it."
+ },
+ "aicat": {
+  "scope": "Scope",
+  "schedule": "Schedule",
+  "cost": "Cost",
+  "security": "Security",
+  "gdpr": "GDPR / privacy",
+  "people": "People",
+  "supplier": "Supplier",
+  "technical": "Technical"
+ },
+ "whatif": {
+  "desc": "Simulate an absence before it happens: which tasks move, the new end date and who could take over. Nothing changes until you decide.",
+  "question": "If this person is absent…",
+  "person": "Team member",
+  "from": "From",
+  "to": "To",
+  "simulate": "Simulate",
+  "nothing_saved": "Simulation only — nothing is saved.",
+  "k_days": "Working days lost",
+  "k_moved": "Tasks that move",
+  "k_direct": {
+   "one": "{n} of this person",
+   "other": "{n} of this person"
+  },
+  "k_end": "New end date",
+  "k_was": "was {date}",
+  "k_delay": "Project delay",
+  "k_crit": {
+   "one": "{n} critical-path task moves",
+   "other": "{n} critical-path tasks move"
+  },
+  "no_impact": "{name} has no unfinished work during these dates: no impact.",
+  "summary_late": "If {name} is absent, {n} task(s) move and the project ends {days} working day(s) later — unless someone takes over.",
+  "summary_ok": "If {name} is absent, {n} task(s) move but the end date stays the same (there is slack).",
+  "old_end": "End now",
+  "new_end": "New end",
+  "delay": "Delay (days)",
+  "why": "Why",
+  "replace": "Who could take over",
+  "why_absent": "{n} working day(s) of absence",
+  "why_depends": "Waits for a delayed task",
+  "free_h": "{h} h free",
+  "nobody": "Nobody free",
+  "decide": "Your decision",
+  "decide_help": "Either give the person's tasks to someone else (buttons above — they receive an e-mail), or keep them and save the new dates (dependent tasks move, the team is e-mailed).",
+  "apply_dates": "Keep the person, save the new dates",
+  "reset": "New simulation",
+  "empty": "Choose a team member and dates, then press Simulate.",
+  "link": "Simulate an absence"
+ },
+ "notes": {
+  "desc": "Paste meeting notes in English, French or Marathi. MissionPilot finds the action items — task, owner, deadline, priority. You check and edit them before anything is created.",
+  "paste": "Meeting notes",
+  "placeholder": "e.g. Lucas will finish the detection rules by Friday (urgent)…",
+  "extract": "Find action items",
+  "example_btn": "Load an example",
+  "engine_claude": "Engine: Claude AI.",
+  "engine_rules_model": "Engine: rules + free on-server AI model.",
+  "engine_rules": "Engine: rules.",
+  "preview": "Preview",
+  "preview_help": "Untick what you do not want; edit any cell.",
+  "owner": "Owner",
+  "deadline": "Deadline",
+  "phase": "Phase",
+  "create": "Create the selected tasks",
+  "nobody": "— nobody —",
+  "example": "Steering meeting — notes\n- Lucas will finish the detection rules by Friday (urgent)\n- Sofia to update the architecture document before 3 Nov\nAction: Anaya prepares the steering committee slides tomorrow\nSofia doit corriger les bugs de connexion avant mardi.\nThe weather was nice and everybody attended.",
+  "created": "{n} task(s) created.",
+  "nothing": "No action item found. Write one action per line, with a name and a date.",
+  "count": "{n} action item(s) found.",
+  "empty": "Paste the meeting notes first.",
+  "link": "Add tasks from meeting notes"
+ },
+ "client": {
+  "button": "Client link",
+  "title": "Client share link",
+  "desc": "A secret read-only page for your client: verdict, progress, milestones and Gantt chart.",
+  "new": "Create a link",
+  "shows": "The client sees: verdict, progress, milestones, Gantt. The client never sees: budget, internal risks, team e-mails.",
+  "label": "Name (for you)",
+  "label_ph": "e.g. Bank steering committee",
+  "expires": "Expires",
+  "days": "after {n} days",
+  "never": "never",
+  "create": "Create and copy link",
+  "link": "Link",
+  "created": "Created",
+  "views": "Views",
+  "log": "View log",
+  "st": {
+   "active": "Active",
+   "expired": "Expired",
+   "revoked": "Revoked"
+  },
+  "revoke": "Revoke",
+  "none": "No client link yet.",
+  "privacy": "Every visit is logged with the time, a pseudonymous visitor number and the browser (no IP address is stored). Revoke a link at any time.",
+  "open": "Open",
+  "view_title": "Project status",
+  "gone": "This link has expired or was revoked. Ask the project manager for a new one.",
+  "readonly_note": "Read-only project status shared by the project manager.",
+  "as_of": "Status on {date}",
+  "footer": "Made with MissionPilot AI."
+ },
+ "imp": {
+  "button": "Import a project",
+  "title": "Import an existing project",
+  "desc": "Bring a project from Excel/CSV, Trello or Jira. You map the columns, check the preview, then create the project.",
+  "step1": "Upload the file",
+  "formats": "Excel (.xlsx), CSV, Trello board export (.json), Jira export (.csv). Up to 2 000 rows, 5 MB.",
+  "upload": "Upload and read",
+  "tpl_xlsx": "Excel template",
+  "tpl_csv": "CSV template",
+  "how_export": "How do I export from Trello or Jira?",
+  "how_trello": "Trello: board menu → … More → Print, export and share → Export as JSON.",
+  "how_jira": "Jira: Filters → search the issues → Export → Export CSV (all fields or current fields).",
+  "how_excel": "Excel / MS Project: one row per task with a header row (task, owner, start, end, progress…). Our template shows the format.",
+  "step2": "Map the columns",
+  "source": {
+   "csv": "CSV file",
+   "jira": "Jira export",
+   "trello": "Trello board",
+   "excel": "Excel file"
+  },
+  "rows": "{n} rows",
+  "f": {
+   "title": "Task name",
+   "phase": "Phase / group / list",
+   "assignee": "Owner",
+   "start": "Start date",
+   "end": "End / due date",
+   "progress": "Progress %",
+   "status": "Status",
+   "priority": "Priority"
+  },
+  "ignore": "not used",
+  "name": "Project name",
+  "budget": "Budget (optional)",
+  "currency": "Currency",
+  "check": "Check the mapping",
+  "sample": "First rows of the file",
+  "step3": "Check and create",
+  "ready": "{n} task(s) ready to import.",
+  "n_errors": "{n} row(s) with errors will be skipped:",
+  "row": "Row {n}",
+  "guessed": "No date in the file: 5 working days were planned after the owner's previous task.",
+  "phase_note": "The phase is suggested from the group/list name and the task name (keywords + on-server AI model). You can move tasks later.",
+  "create": "Create the project ({n} tasks)",
+  "done": "Project imported: {n} tasks. Risks, budget lines and the verdict were added automatically.",
+  "err": {
+   "too_big": "The file is larger than 5 MB.",
+   "type": "Use an .xlsx, .csv or Trello .json file.",
+   "empty": "No rows found in the file.",
+   "read": "The file could not be read. Save it again as .xlsx or .csv (UTF-8).",
+   "trello": "This JSON is not a Trello board export.",
+   "no_title": "no task name",
+   "bad_date": "date not understood (use YYYY-MM-DD or DD/MM/YYYY)",
+   "end_before_start": "end date is before start date",
+   "bad_progress": "progress must be a number from 0 to 100",
+   "nofile": "Choose a file first.",
+   "map_title": "Choose which column holds the task name."
+  }
+ },
+ "mail": {
+  "subject": {
+   "assigned": "[{project}] New task for {name}: {task}",
+   "deadline": "[{project}] Deadline changed: {task}",
+   "blocked": "[{project}] Task blocked: {task}",
+   "overdue": {
+    "one": "[{project}] {n} task is now overdue",
+    "other": "[{project}] {n} tasks are now overdue"
+   },
+   "overload": "[{project}] {name} is overloaded",
+   "risk": "[{project}] New {band} risk: {risk}",
+   "weekly": "[{project}] Weekly status — {date}",
+   "test": "MissionPilot AI — test e-mail",
+   "absence": "[{project}] Absence planned: {name}"
+  },
+  "assigned": "{name}, the task “{task}” is now yours ({start} → {end}).",
+  "reassigned_from": "It was assigned to {old} before.",
+  "deadline": "The end date of “{task}” changed from {old} to {new}. Dependent tasks moved: {n}.",
+  "new_end": "The project now ends on {date}.",
+  "blocked": "“{task}” ({name}) is marked as blocked. Please check what is needed to unblock it.",
+  "risk": "{rid} {risk} — score {score} ({band}).",
+  "why": "Why: {why}",
+  "action": "Suggested action: {action}",
+  "overdue_intro": {
+   "one": "This task passed its end date and is not finished:",
+   "other": "These {n} tasks passed their end date and are not finished:"
+  },
+  "due": "due",
+  "overload": "{name} is planned for {h} h in the week of {week} (capacity {cap} h).",
+  "overload_fix": "Open What-if to see who could take over, or move a deadline.",
+  "weekly_intro": "Status on {date}: {verdict}.",
+  "weekly_progress": "Progress {actual} (plan {planned}) · {done}/{total} tasks done · {overdue} overdue.",
+  "weekly_budget": "Budget used {used} of {total} · CPI {cpi} · SPI {spi}.",
+  "weekly_reasons": "Why:",
+  "weekly_next": "Next 7 days:",
+  "weekly_risks": "Top open risks:",
+  "weekly_attach": "The full weekly report is attached (Word).",
+  "test": "This test e-mail shows that sending through Gmail works. Sent at {time}.",
+  "open": "Open in MissionPilot",
+  "footer": "You receive this because you own this project in MissionPilot AI. Turn e-mails off in Settings.",
+  "footer_demo": "Demo workspace: e-mails go only to the site administrator's address (EMAIL_TO), never to addresses typed in the demo.",
+  "absence": "{name} is absent from {start} to {end}. {n} task(s) were re-planned.",
+  "absence_end": "Project end date: {old} → {new}.",
+  "bad_address": "This e-mail address does not look valid.",
+  "weekly_button": "E-mail weekly report",
+  "settings_title": "E-mails",
+  "pref_alerts": "E-mail me in real time (assignments, deadline changes, blocked/overdue tasks, overload, new high risks)",
+  "pref_weekly": "Weekly status report every Monday at 08:00 (Paris time)",
+  "status_title": "E-mail sending (Gmail)",
+  "configured": "Gmail connected",
+  "goes_to": "E-mails for you go to {to}.",
+  "not_configured": "Not connected",
+  "not_configured_help": "The server administrator must set SMTP_USER and SMTP_PASSWORD (a Gmail App password). Until then every e-mail is logged as “not sent”.",
+  "test_button": "Send a test e-mail",
+  "howto_link": "How to connect Gmail",
+  "log_title": "Last e-mails",
+  "log_empty": "No e-mail yet.",
+  "c": {
+   "when": "When",
+   "event": "Event",
+   "to": "To",
+   "subject": "Subject"
+  },
+  "ev": {
+   "task_assigned": "Task assigned",
+   "deadline_changed": "Deadline changed",
+   "task_blocked": "Task blocked",
+   "risk_raised": "New high risk",
+   "overdue": "Overdue tasks",
+   "overload": "Overload",
+   "weekly_report": "Weekly report",
+   "test": "Test",
+   "absence": "Absence"
+  },
+  "st": {
+   "queued": "E-mail is being sent…",
+   "sent": "E-mail sent.",
+   "failed": "Sending failed.",
+   "not_configured": "Not sent: Gmail is not connected on the server yet.",
+   "skipped": "Not sent (no valid recipient or daily limit)."
+  },
+  "st_short": {
+   "queued": "Sending",
+   "sent": "Sent",
+   "failed": "Failed",
+   "not_configured": "Not connected",
+   "skipped": "Skipped"
+  }
  }
 }

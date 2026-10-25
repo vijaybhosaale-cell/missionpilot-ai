@@ -1,0 +1,17 @@
+{
+ "source": "sentence-transformers/static-similarity-mrl-multilingual-v1",
+ "license": "Apache-2.0",
+ "tensor": "embedding.weight",
+ "shape": [
+  105879,
+  128
+ ],
+ "dims": 128,
+ "files": [
+  "0_StaticEmbedding",
+  "0_StaticEmbedding/model.safetensors",
+  "0_StaticEmbedding/tokenizer.json",
+  "config_sentence_transformers.json",
+  "modules.json"
+ ]
+}

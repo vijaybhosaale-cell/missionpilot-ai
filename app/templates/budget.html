@@ -19,7 +19,7 @@
 <div class="card" style="padding:0">
   <div class="tbl-wrap">
   <table class="tbl">
-    <thead><tr><th>{{ t('doc.c.category') }}</th><th class="num">{{ t('budget.planned') }} ({{ i18n.currency_symbol(cur, L) }})</th><th class="num">{{ t('budget.actual') }} ({{ i18n.currency_symbol(cur, L) }})</th><th class="num">{{ t('doc.c.variance') }}</th><th></th></tr></thead>
+    <thead><tr><th>{{ t('doc.c.category') }}</th><th class="num">{{ t('budget.planned') }} ({{ i18n.currency_symbol(cur, L) }})</th><th class="num">{{ t('budget.actual') }} ({{ i18n.currency_symbol(cur, L) }})</th><th class="num" title="{{ t('budget.remaining_help') }}">{{ t('budget.remaining') }}</th><th></th></tr></thead>
     <tbody>
     {% for b in d.budget %}
       <tr><td>{{ b.label }}</td>

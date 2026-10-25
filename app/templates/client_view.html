@@ -1,0 +1,28 @@
+{% extends "base_public.html" %}
+{% block title %}{% if gone %}MissionPilot AI{% else %}{{ d.project.display_name }} · {{ t('client.view_title') }}{% endif %}{% endblock %}
+{% block content %}
+<div style="max-width:1100px;margin:10px auto 40px;padding:0 16px;width:100%">
+{% if gone %}
+  <div class="card empty" style="margin-top:40px"><div class="big">🔒</div><p>{{ t('client.gone') }}</p></div>
+{% else %}
+  <p class="muted small">{{ t('client.readonly_note') }}</p>
+  <h1 style="margin:6px 0 4px">{{ d.project.display_name }}</h1>
+  <p class="muted">{{ i18n.date(d.project.start_date, L) }} → {{ i18n.date(d.project.end_date, L) }}</p>
+  <div class="card verdict v-{{ v.level }}">
+    <div class="vtop"><span class="vbadge {{ m.health }}"><i></i>{{ t('verdict.' ~ v.level) }}</span><span class="muted small">{{ t('client.as_of', date=i18n.date(m.today, L)) }}</span></div>
+    {% if v.reasons %}<ol class="vreasons">{% for k, p, sev in v.reasons[:3] %}<li class="sev{{ sev }}">{{ vr(k, p) }}</li>{% endfor %}</ol>
+    {% else %}<ol class="vreasons good">{% for k, p in v.good %}<li>{{ t(k, **p) }}</li>{% endfor %}</ol>{% endif %}
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="l">{{ t('kpi.progress') }}</div><div class="v">{{ i18n.pct(m.progress, L) }}</div><div class="s">{{ t('kpi.planned_today', v=i18n.pct(m.planned, L)) }}</div></div>
+    <div class="kpi"><div class="l">{{ t('kpi.tasks_done') }}</div><div class="v">{{ i18n.num(m.tasks_done, L) }} / {{ i18n.num(m.tasks_total, L) }}</div></div>
+    <div class="kpi"><div class="l">{{ t('kpi.end_date') }}</div><div class="v" style="font-size:19px">{{ i18n.date(d.project.end_date, L) }}</div></div>
+  </div>
+  <div class="card"><h2>{{ t('home.milestones') }}</h2>
+    <table class="tbl"><tbody>{% for t_ in milestones %}<tr><td>◆ {{ t_.title }}</td><td class="nowrap">{{ i18n.date(t_.end, L) }}</td>
+      <td>{% set st = 'done' if t_.progress >= 100 else ('overdue' if t_.end < m.today else 'todo') %}<span class="badge b-{{ st }}">{{ t('status.' ~ st) }}</span></td></tr>{% endfor %}</tbody></table></div>
+  <div class="card"><h2>{{ t('nav.gantt') }}</h2><div class="chart gantt-wrap">{{ gantt|safe }}</div><div class="chart">{{ legend|safe }}</div></div>
+  <p class="muted small">{{ t('client.footer') }}</p>
+{% endif %}
+</div>
+{% endblock %}

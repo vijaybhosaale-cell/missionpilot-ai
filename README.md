@@ -24,6 +24,36 @@ Type a project name and one sentence. Answer a short question popup (budget, tea
 
 Without a Claude API key everything works from a professional template library. With `ANTHROPIC_API_KEY` set, Claude writes the plan for your exact project, asks extra project-specific questions, writes document sections and answers free-form questions.
 
+## New in v1.1
+
+| Feature | Where | How it works |
+|---|---|---|
+| **Project verdict** | Home | On track / At risk / Critical with the top 3 reasons, recalculated from the data on every visit |
+| **Data-driven risks** | Risks (⚙ Automatic) | Explainable rules: member above 40 h × availability in a week, overdue critical-path tasks, > 3 points behind plan, CPI or SPI < 0.95, milestone at risk. Each risk says *why*; it becomes "Condition cleared" when the cause disappears; never confirmed automatically |
+| **Free pre-trained AI model** | Risks, Tasks, Meeting notes, Import | `static-similarity-mrl-multilingual-v1` (Apache-2.0, 128 dims, ~27 MB, runs on the server, no paid API): suggests categories (scope, schedule, cost, security, GDPR, people, supplier, technical), finds duplicate risks, scores action items, suggests phases. Shown as "AI suggestion — a person decides" |
+| **Real-time e-mail (Gmail)** | Settings → E-mails | Task assigned / reassigned, deadline changed, task blocked, newly overdue, overload, new high risk, absence; background sending; every attempt logged; test button; daily limit; demo workspaces e-mail only `EMAIL_TO` |
+| **Weekly status e-mail** | Monday 08:00 Paris | GitHub Actions (`.github/workflows/scheduled-jobs.yml`) calls `/api/cron/weekly`; Word report attached. "E-mail weekly report" button on Home sends it now |
+| **What-if** | What-if | "If X is absent from … to …": tasks that move, new end date, critical-path impact, replacements ranked by role and free hours; apply only when you decide |
+| **Meeting notes → tasks** | Meeting notes | EN/FR/मराठी: owner, deadline ("by Friday", "avant mardi", "शुक्रवारपर्यंत"…), priority; editable preview; nothing created automatically. Uses Claude if a key is set |
+| **Client share link** | Home → Client link | Secret read-only page (verdict, progress, milestones, Gantt — no budget, risks or e-mails); expiry, revoke, view log (no IP stored) |
+| **Import** | Projects → Import | Excel/CSV, Trello JSON, Jira CSV; column mapping, preview, per-row errors, downloadable templates |
+
+### Connect Gmail (5 minutes)
+
+1. Google Account → **Security** → turn on **2-Step Verification**.
+2. Open https://myaccount.google.com/apppasswords → name it *MissionPilot* → **Create** → copy the 16-character password.
+3. Render → the `missionpilot-ai` service → **Environment** → add `SMTP_USER` (the Gmail address), `SMTP_PASSWORD` (the App password), `EMAIL_TO` (where demo/admin mails go) → **Save** (the site restarts).
+4. MissionPilot → **Settings → Send a test e-mail**. The log shows *Sent* or the exact error.
+
+Optional: `CRON_SECRET` on Render + the same value as GitHub secret `MP_CRON_SECRET` to protect the scheduled endpoints.
+
+### Honest limits
+
+* Render free plan: the SQLite database is reset when the service restarts or redeploys. The scheduled keep-alive (every 10 min) avoids the sleep restarts; for permanent data use a paid disk or a hosted database.
+* GitHub may delay scheduled workflows by several minutes and pauses them after 60 days without commits.
+* The AI model gives *suggestions* (≈60 % agreement with the template categories in tests; better on clear wording, weaker on vague or Marathi text). Rules and people decide.
+* Meeting-note names written in another script (e.g. "अनाया" for "Anaya") are not matched to the team member.
+
 ## Run it
 
 - **Windows laptop:** double-click `run_local.bat`, then open http://localhost:8000
@@ -33,7 +63,7 @@ Without a Claude API key everything works from a professional template library. 
 ## Tests
 
 ```bash
-python -m unittest -v                                         # 15 core tests
+python -m unittest -v                                         # 23 tests (core + v1.1)
 python scripts/smoke_test.py http://localhost:8000 mr out     # end-to-end against a running server
 python -m app.check_locales                                   # every language has every key
 ```

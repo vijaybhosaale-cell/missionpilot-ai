@@ -2,7 +2,7 @@
 {% from "_macros.html" import icon, header %}
 {% block title %}{{ t('nav.settings') }}{% endblock %}
 {% block content %}
-{% call header(12, t('nav.settings'), t('settings.desc')) %}{% endcall %}
+{% call header(14, t('nav.settings'), t('settings.desc')) %}{% endcall %}
 {% if saved %}<div class="flash">✓ {{ t('settings.saved') }}</div>{% endif %}
 <form method="post" class="card" id="settings-form">
   <h2>{{ t('settings.profile') }}</h2>
@@ -33,10 +33,28 @@
       <select id="voice_rate" name="voice_rate" style="width:100%">{% for r in [0.75, 1.0, 1.25] %}<option value="{{ r }}" {{ 'selected' if (user.voice_rate - r)|abs < 0.01 else '' }}>{{ r }}×</option>{% endfor %}</select></div>
   </div>
   <div class="actions" style="margin-top:10px"><button type="button" class="btn sm" onclick="MPvoice.test()">{{ icon('speaker') }}{{ t('settings.voice_test') }}</button><span class="muted small" id="voice-status"></span></div>
+  <h2 style="margin-top:22px" id="email">{{ t('mail.settings_title') }}</h2>
+  <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="email_notify" {{ 'checked' if user.email_notify else '' }}> {{ t('mail.pref_alerts') }}</label>
+  <label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" name="weekly_report" {{ 'checked' if user.weekly_report else '' }}> {{ t('mail.pref_weekly') }}</label>
   <h2 style="margin-top:22px">{{ t('settings.tour') }}</h2>
   <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="restart_tour"> {{ t('settings.restart_tour') }}</label>
   <div style="margin-top:18px"><button class="btn primary">{{ t('settings.save') }}</button></div>
 </form>
+<div class="card" id="email-card">
+  <h2>{{ icon('mail') }} {{ t('mail.status_title') }}</h2>
+  {% if mail_cfg.on %}<p><span class="badge b-green">{{ t('mail.configured') }}</span> {{ t('mail.goes_to', to=mail_cfg.to) }}</p>
+  {% else %}<p><span class="badge b-amber">{{ t('mail.not_configured') }}</span> {{ t('mail.not_configured_help') }}</p>{% endif %}
+  {% if user.is_demo %}<p class="muted small">{{ t('mail.footer_demo') }}</p>{% endif %}
+  <div class="actions"><button class="btn sm primary" onclick="MPapp.testEmail()" id="btn-test-email">{{ icon('send') }}{{ t('mail.test_button') }}</button>
+    <a class="btn sm" href="/app/help#email">{{ t('mail.howto_link') }}</a></div>
+  <h3 style="margin:16px 0 6px;font-size:14px">{{ t('mail.log_title') }}</h3>
+  {% if mail_log %}
+  <div class="tbl-wrap"><table class="tbl small"><thead><tr><th>{{ t('mail.c.when') }}</th><th>{{ t('mail.c.event') }}</th><th>{{ t('mail.c.to') }}</th><th>{{ t('mail.c.subject') }}</th><th>{{ t('doc.c.status') }}</th></tr></thead><tbody>
+  {% for e in mail_log %}<tr><td class="nowrap muted">{{ i18n.datetime(e.created_at[:19], L, 'short') }}</td><td class="nowrap">{{ t('mail.ev.' ~ e.event) }}</td><td>{{ e.recipients or '—' }}</td><td>{{ e.subject }}</td>
+    <td><span class="badge {{ 'b-green' if e.status == 'sent' else ('b-red' if e.status == 'failed' else 'b-amber') }}" title="{{ e.error or '' }}">{{ t('mail.st_short.' ~ e.status) }}</span>{% if e.error and e.status != 'sent' %}<div class="muted small">{{ e.error[:140] }}</div>{% endif %}</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<p class="muted small">{{ t('mail.log_empty') }}</p>{% endif %}
+</div>
 <div class="grid g2">
   <div class="card">
     <h2>{{ t('settings.lang_status') }}</h2>
@@ -46,10 +64,12 @@
     </tbody></table>
     <p class="muted small">{{ t('settings.review_note') }}</p>
   </div>
-  <div class="card">
+  <div class="card" id="system">
     <h2>{{ t('settings.system') }}</h2>
     <table class="tbl"><tbody>
       <tr><td>{{ t('settings.ai_engine') }}</td><td>{% if ai_model %}<span class="badge b-ai">✦ {{ ai_model }}</span>{% else %}<span class="badge">{{ t('app.engine_template') }}</span><div class="muted small">{{ t('settings.ai_howto') }}</div>{% endif %}</td></tr>
+      <tr><td>{{ t('ai.model_row') }}</td><td>{% if ml_status.on %}<span class="badge b-ml">◆ {{ ml_status.model }}</span><div class="muted small">{{ t('ai.model_row_help') }}</div>{% else %}<span class="badge b-amber">{{ t('ai.model_off') }}</span>{% endif %}</td></tr>
+      <tr><td>{{ t('mail.status_title') }}</td><td>{% if mail_cfg.on %}<span class="badge b-green">{{ t('mail.configured') }}</span>{% else %}<span class="badge b-amber">{{ t('mail.not_configured') }}</span>{% endif %}</td></tr>
       <tr><td>{{ t('settings.pdf_engine') }}</td><td>{% if pdf_error %}<span class="badge b-amber">{{ t('settings.pdf_fallback') }}</span>{% else %}<span class="badge b-green">Chromium</span>{% endif %}</td></tr>
       <tr><td>{{ t('settings.missing') }}</td><td>{{ missing|length }}{% if missing %}<details><summary class="small">{{ t('settings.show') }}</summary><ul class="small">{% for m_ in missing %}<li><code>{{ m_.key }}</code> · {{ m_.locale }} · {{ m_.count }}</li>{% endfor %}</ul></details>{% endif %}</td></tr>
     </tbody></table>

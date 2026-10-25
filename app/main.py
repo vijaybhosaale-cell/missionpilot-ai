@@ -22,12 +22,14 @@ from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
 from . import ai, analytics as A, charts, db, documents as DOCS, exporters as X, i18n, library as L, planner, render
+from . import importer as IMP, mailer, ml, notes as NOTES, notify, riskengine, whatif
 
 BASE = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 SECRET = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")
-VERSION = "1.0.0"
+VERSION = "1.1.0"
+CRON_SECRET = os.environ.get("CRON_SECRET", "")
 
 
 # ---------------------------------------------------------------- auth helpers
@@ -85,13 +87,15 @@ def flush_missing():
 
 NAV = [("home", "nav.home", "home"), ("projects", "nav.projects", "folder"), ("tasks", "nav.tasks", "check"),
        ("gantt", "nav.gantt", "gantt"), ("progress", "nav.progress", "bars"), ("budget", "nav.budget", "coin"),
-       ("risks", "nav.risks", "alert"), ("team", "nav.team", "users"), ("reports", "nav.reports", "report"),
+       ("risks", "nav.risks", "alert"), ("team", "nav.team", "users"), ("whatif", "nav.whatif", "whatif"),
+       ("notes", "nav.notes", "notes"), ("reports", "nav.reports", "report"),
        ("documents", "nav.documents", "doc"), ("assistant", "nav.assistant", "spark"), ("settings", "nav.settings", "gear"),
        ("help", "nav.help", "help")]
-PROJECT_PAGES = {"home", "tasks", "gantt", "progress", "budget", "risks", "team", "reports", "documents", "assistant"}
+PROJECT_PAGES = {"home", "tasks", "gantt", "progress", "budget", "risks", "team", "whatif", "notes", "reports", "documents", "assistant"}
 
 
 def page(request: Request, name: str, user, loc: str, **kw):
+    notify.set_base_url(f"{request.url.scheme}://{request.url.netloc}")
     info = i18n.info(loc)
     projects = db.q("SELECT id,name,name_key FROM projects WHERE owner_id=? ORDER BY id DESC", (user["id"],)) if user else []
     pid = kw.get("pid") or (user["current_project_id"] if user else None)
@@ -110,9 +114,10 @@ def page(request: Request, name: str, user, loc: str, **kw):
                     autostart=(not user["onboarding_completed_at"] and user["onboarding_step"] == 0) or request.query_params.get("tour"),
                     voice=bool(user["voice_enabled"]), rate=user["voice_rate"], voice_name=user["voice_name"] or "")
     ctx = dict(request=request, user=user, L=loc, info=info, t=lambda k, **p: i18n.t(k, loc, **p), tl=lambda k: i18n.tl(k, loc),
+               vr=lambda k, p: A.reason_text(k, p, loc),
                i18n=i18n, locales=[(c, i18n.LOCALES[c]["name"]) for c in i18n.CODES], nav=nav, active=kw.get("active", ""),
                projects=[dict(id=p["id"], name=i18n.t(p["name_key"], loc) if p["name_key"] else p["name"]) for p in projects],
-               pid=pid, ai_on=ai.available(), tour=tour, version=VERSION,
+               pid=pid, ai_on=ai.available(), ml_on=ml.available(), mail_on=mailer.configured(), tour=tour, version=VERSION,
                js=json.dumps(dict(strings=i18n.js_bundle(loc), locale=loc, tts=info["tts"], dir=info["dir"], pid=pid,
                                   tour=tour, page=kw.get("active", ""), demo=bool(user and user["is_demo"]),
                                   types=L.PROJECT_TYPES, currencies=i18n.CURRENCIES), ensure_ascii=False))
@@ -144,10 +149,20 @@ def project_page(fn):
             db.ex("UPDATE users SET current_project_id=? WHERE id=?", (pid, user["id"]))
             user = current_user(request)
         loc = locale_of(request, user)
+        _check(pid)
         data = A.load(pid, loc)
         return await fn(request, user, loc, pid, data)
     wrapper.__name__ = fn.__name__
     return wrapper
+
+
+def _check(pid: int, send: bool = True):
+    """Risk engine + e-mail alerts. Never breaks a page or an API call."""
+    try:
+        return notify.check(pid, send=send)
+    except Exception as e:  # pragma: no cover - logged, not shown
+        print("check failed", pid, e)
+        return {}
 
 
 # ---------------------------------------------------------------- public pages
@@ -204,13 +219,18 @@ async def logout(request: Request):
 
 async def demo(request: Request):
     """A private demo workspace per visitor, filled with a sample project; tour starts automatically."""
-    loc = locale_of(request, current_user(request))
-    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=24)).isoformat()
-    db.ex("DELETE FROM users WHERE is_demo=1 AND created_at<?", (cutoff,))
+    me = current_user(request)
+    loc = locale_of(request, me)
+    purge_demos()
+    if me and me["is_demo"]:  # same visitor clicks "Try the demo" again: reopen the same workspace, no new project
+        p = db.q1("SELECT id FROM projects WHERE owner_id=? ORDER BY id DESC", (me["id"],))
+        if p:
+            return RedirectResponse(f"/app/p/{p['id']}/home", 303)
     email = f"demo-{secrets.token_hex(6)}@demo.missionpilot"
     uid = db.ex("""INSERT INTO users(email,name,password_hash,interface_locale,ai_locale,doc_locale,report_locale,is_demo,created_at)
                    VALUES(?,?,?,?,?,?,?,1,?)""", (email, i18n.t("demo.user", loc), hash_pw(secrets.token_hex(8)), loc, loc, loc, loc, db.now()))
     pid = planner.seed_demo(uid, loc)
+    _check(pid, send=False)
     db.ex("UPDATE users SET current_project_id=? WHERE id=?", (pid, uid))
     request.session.clear()
     request.session["uid"] = uid
@@ -258,7 +278,7 @@ async def p_home(request, user, loc, pid, data):
     bars = charts.progress_bars([dict(label=t["title"], progress=t["progress"], days=t["days"],
                                       overdue=t["end"] < data["metrics"]["today"]) for t in active], loc, width=620) if active else ""
     hist = A.history(pid, data)
-    return page(request, "home.html", user, loc, pid=pid, active="home", d=data, m=data["metrics"], recent=recent,
+    return page(request, "home.html", user, loc, pid=pid, active="home", d=data, m=data["metrics"], recent=recent, v=data["verdict"],
                 bars=bars, scurve=charts.scurve(hist, loc, width=600), status_svg=charts.status_bar(data["metrics"], loc),
                 created=request.query_params.get("created"))
 
@@ -275,7 +295,8 @@ async def p_tasks(request, user, loc, pid, data):
         tasks = [t for t in tasks if t["end"] < today and t["progress"] < 100]
     elif flt == "week":
         tasks = data["metrics"]["due_week"]
-    return page(request, "tasks.html", user, loc, pid=pid, active="tasks", d=data, tasks=tasks, view=view, f=flt,
+    cats = {x["id"]: ml.suggest_category(x["canonical_title"] or x["title"]) for x in tasks if not x["milestone"]} if ml.available() else {}
+    return page(request, "tasks.html", user, loc, pid=pid, active="tasks", d=data, tasks=tasks, view=view, f=flt, cats=cats,
                 can_translate=ai.available() and loc != data["project"]["canonical_locale"])
 
 
@@ -365,8 +386,14 @@ async def p_budget(request, user, loc, pid, data):
 
 @project_page
 async def p_risks(request, user, loc, pid, data):
+    live = [r for r in data["risks"] if r["status"] != "cleared"]
+    sugg = {r["id"]: ml.suggest_category(r["canonical_title"] or r["title"]) for r in data["risks"] if r["source"] != "auto"}
+    dups = ml.duplicates([dict(id=r["id"], code=r["code"], title=r["title"], text=r["canonical_title"] or r["title"])
+                          for r in data["risks"] if r["status"] not in ("closed", "cleared")])
+    order = {"open": 0, "mitigated": 1, "closed": 2, "cleared": 3}
     return page(request, "risks.html", user, loc, pid=pid, active="risks", d=data,
-                matrix=charts.risk_matrix(data["risks"], loc), risks=sorted(data["risks"], key=lambda r: -r["score"]))
+                matrix=charts.risk_matrix(live, loc), risks=sorted(data["risks"], key=lambda r: (order.get(r["status"], 9), -r["score"])),
+                sugg=sugg, dups=dups, ml_status=ml.status())
 
 
 @project_page
@@ -423,7 +450,8 @@ async def settings_page(request: Request, user):
             date_style=f.get("date_style") if f.get("date_style") in ("short", "medium", "long") else "medium",
             time_zone=str(f.get("time_zone", "Europe/Paris"))[:60], week_start=1 if f.get("week_start") == "1" else 0,
             voice_enabled=1 if f.get("voice_enabled") else 0, voice_name=str(f.get("voice_name", ""))[:120],
-            voice_rate=min(1.5, max(0.6, float(f.get("voice_rate") or 1))))
+            voice_rate=min(1.5, max(0.6, float(f.get("voice_rate") or 1))),
+            email_notify=1 if f.get("email_notify") else 0, weekly_report=1 if f.get("weekly_report") else 0)
         db.ex("UPDATE users SET " + ",".join(f"{k}=?" for k in vals) + " WHERE id=?", (*vals.values(), user["id"]))
         if f.get("restart_tour"):
             db.ex("UPDATE users SET onboarding_completed_at=NULL, onboarding_step=0 WHERE id=?", (user["id"],))
@@ -438,8 +466,11 @@ async def settings_page(request: Request, user):
         cov.append(dict(code=c, name=i18n.LOCALES[c]["name"], pct=100 * len(keys & en_keys) / max(1, len(en_keys)),
                         status=i18n.meta(c).get("status", "machine")))
     missing = db.q("SELECT * FROM missing_translations ORDER BY count DESC LIMIT 30")
+    pids = [p["id"] for p in db.q("SELECT id FROM projects WHERE owner_id=?", (user["id"],))]
     return page(request, "settings.html", user, loc, active="settings", saved=saved, coverage=cov, missing=missing,
-                ai_model=ai.MODEL if ai.available() else None, pdf_error=X.pdf_engine_error)
+                ai_model=ai.MODEL if ai.available() else None, pdf_error=X.pdf_engine_error,
+                mail_cfg=dict(on=mailer.configured(), to=mailer.admin_to() if user["is_demo"] else user["email"]),
+                mail_log=mailer.recent(25, pids, user["id"]), ml_status=ml.status())
 
 
 @login_required
@@ -550,6 +581,7 @@ async def api_create(request: Request):
         if plan and not plan.get("risks"):
             plan["risks"] = planner.template_plan(answers["type"])["risks"]
     pid = planner.create_project(user["id"], answers, plan)
+    _check(pid, send=False)
     db.ex("UPDATE users SET current_project_id=? WHERE id=?", (pid, user["id"]))
     return JSONResponse({"project_id": pid, "url": f"/app/p/{pid}/home?created=1", "engine": "ai" if plan else "template"})
 
@@ -567,6 +599,8 @@ async def api_task(request: Request):
         return jerr("not found", 404)
     b = await body(request)
     prog, status = t["progress"], t["status"]
+    old_status, old_end, old_assignee = t["status"], dt.date.fromisoformat(t["end_date"]), t["assignee_id"]
+    before = {r["id"]: r["end_date"] for r in db.q("SELECT id,end_date FROM tasks WHERE project_id=?", (t["project_id"],))}
     if "progress" in b:
         prog = max(0, min(100, int(float(b["progress"]))))
         status = A.status_for(prog, t["status"])
@@ -590,9 +624,30 @@ async def api_task(request: Request):
             pass
     if "title" in b and str(b["title"]).strip():
         db.ex("UPDATE tasks SET title_text=?, title_key=NULL WHERE id=?", (str(b["title"]).strip()[:200], t["id"]))
+    assigned = False
     if b.get("assignee_id"):
         if db.q1("SELECT 1 FROM members WHERE id=? AND project_id=?", (int(b["assignee_id"]), t["project_id"])):
             db.ex("UPDATE tasks SET assignee_id=? WHERE id=?", (int(b["assignee_id"]), t["id"]))
+            assigned = int(b["assignee_id"]) != old_assignee
+            if assigned:
+                db.ex("INSERT INTO activity(project_id,user_id,at,kind,task_id,old_value,new_value) VALUES(?,?,?,?,?,?,?)",
+                      (t["project_id"], user["id"], db.now(), "assigned", t["id"], str(old_assignee or ""), str(b["assignee_id"])))
+    try:  # real-time e-mails (sent in the background)
+        pid_ = t["project_id"]
+        if assigned:
+            notify.task_assigned(pid_, t["id"], old_assignee, user["id"])
+        new_end = db.q1("SELECT end_date FROM tasks WHERE id=?", (t["id"],))["end_date"]
+        if new_end != old_end.isoformat():
+            after = {r["id"]: r["end_date"] for r in db.q("SELECT id,end_date FROM tasks WHERE project_id=?", (pid_,))}
+            moved = sum(1 for k, v in after.items() if k != t["id"] and before.get(k) != v)
+            db.ex("INSERT INTO activity(project_id,user_id,at,kind,task_id,old_value,new_value) VALUES(?,?,?,?,?,?,?)",
+                  (pid_, user["id"], db.now(), "deadline", t["id"], old_end.isoformat(), new_end))
+            notify.deadline_changed(pid_, t["id"], old_end, moved, user["id"])
+        if status == "blocked" and old_status != "blocked":
+            notify.task_blocked(pid_, t["id"], user["id"])
+    except Exception as e:  # pragma: no cover
+        print("notify failed", e)
+    _check(t["project_id"])
     loc = locale_of(request, user)
     m = A.load(t["project_id"], loc)["metrics"]
     return JSONResponse({"ok": True, "progress": prog, "status": status, "status_label": i18n.t(f"status.{status}", loc),
@@ -615,6 +670,7 @@ async def api_budget(request: Request):
             except (TypeError, ValueError):
                 return jerr("bad number")
     db.ex("INSERT INTO activity(project_id,user_id,at,kind,new_value) VALUES(?,?,?,?,?)", (line["project_id"], user["id"], db.now(), "budget", line["category"]))
+    _check(line["project_id"])
     return JSONResponse({"ok": True})
 
 
@@ -627,10 +683,18 @@ async def api_risk(request: Request):
     if not r:
         return jerr("not found", 404)
     if b.get("status") in ("open", "mitigated", "closed"):
-        db.ex("UPDATE risks SET status=? WHERE id=?", (b["status"], r["id"]))
+        db.ex("UPDATE risks SET status=?, updated_at=? WHERE id=?", (b["status"], db.now(), r["id"]))
+    if b.get("evidence") in ("hypothesis", "signal", "confirmed"):  # only a person can confirm a risk
+        db.ex("UPDATE risks SET evidence=? WHERE id=?", (b["evidence"], r["id"]))
+    if b.get("category") in ("scope", "schedule", "cost", "resource", "technical", "security", "compliance", "external"):
+        db.ex("UPDATE risks SET category=? WHERE id=?", (b["category"], r["id"]))
+    old_score = r["probability"] * r["impact"]
     for f in ("probability", "impact"):
         if f in b:
             db.ex(f"UPDATE risks SET {f}=? WHERE id=?", (max(1, min(5, int(b[f]))), r["id"]))
+    n = db.q1("SELECT probability*impact s FROM risks WHERE id=?", (r["id"],))["s"]
+    if n >= 12 > old_score:
+        notify.risk_raised(r["project_id"], r["id"], user["id"])
     return JSONResponse({"ok": True})
 
 
@@ -647,7 +711,12 @@ async def api_member(request: Request):
     if "capacity" in b:
         db.ex("UPDATE members SET capacity_pct=? WHERE id=?", (max(10, min(100, int(b["capacity"]))), m["id"]))
     if "email" in b:
-        db.ex("UPDATE members SET email=? WHERE id=?", (str(b["email"]).strip()[:120], m["id"]))
+        em = str(b["email"]).strip()[:120]
+        if em and not mailer.valid(em):
+            return jerr(i18n.t("mail.bad_address", locale_of(request, user)))
+        db.ex("UPDATE members SET email=? WHERE id=?", (em, m["id"]))
+    if "capacity" in b:
+        _check(m["project_id"])
     return JSONResponse({"ok": True})
 
 
@@ -684,6 +753,7 @@ async def api_demo_reset(request: Request):
     loc = locale_of(request, user)
     db.ex("DELETE FROM projects WHERE owner_id=?", (user["id"],))
     pid = planner.seed_demo(user["id"], loc)
+    _check(pid, send=False)
     db.ex("UPDATE users SET current_project_id=? WHERE id=?", (pid, user["id"]))
     return JSONResponse({"ok": True, "url": f"/app/p/{pid}/home"})
 
@@ -1001,6 +1071,320 @@ async def healthz(request: Request):
     return JSONResponse({"ok": True, "version": VERSION, "ai": ai.available(), "locales": i18n.CODES})
 
 
+
+# ---------------------------------------------------------------- what-if simulation
+
+def _date_param(v, default):
+    try:
+        return dt.date.fromisoformat(str(v)[:10])
+    except (TypeError, ValueError):
+        return default
+
+
+@project_page
+async def p_whatif(request, user, loc, pid, data):
+    qp = request.query_params
+    today = data["metrics"]["today"]
+    sim = None
+    mid = int(qp["member"]) if (qp.get("member") or "").isdigit() else None
+    d1 = _date_param(qp.get("from"), planner.next_workday(today + dt.timedelta(days=7 - today.weekday())))
+    d2 = _date_param(qp.get("to"), planner.add_workdays(d1, 4))
+    if mid:
+        sim = whatif.simulate(data, mid, d1, d2)
+        if sim.get("error"):
+            sim = None
+    return page(request, "whatif.html", user, loc, pid=pid, active="whatif", d=data, sim=sim, mid=mid, d1=d1, d2=d2)
+
+
+async def api_whatif_apply(request: Request):
+    user = current_user(request)
+    if not user:
+        return jerr("auth", 401)
+    pid = int(request.path_params["pid"])
+    if not owned_project(user, pid):
+        return jerr("not found", 404)
+    b = await body(request)
+    data = A.load(pid, "en")
+    sim = whatif.simulate(data, int(b.get("member")), _date_param(b.get("from"), db.today()), _date_param(b.get("to"), db.today()))
+    if sim.get("error"):
+        return jerr("bad member")
+    old_end = data["project"]["end_date"]
+    n = whatif.apply_dates(pid, sim)
+    db.ex("INSERT INTO activity(project_id,user_id,at,kind,old_value,new_value) VALUES(?,?,?,?,?,?)",
+          (pid, user["id"], db.now(), "absence", sim["member"]["name"], f"{sim['d1']}→{sim['d2']}"))
+    try:
+        _, _, mloc = notify._context(pid)
+        new_end = db.q1("SELECT end_date FROM projects WHERE id=?", (pid,))["end_date"]
+        lines = [i18n.t("mail.absence", mloc, name=sim["member"]["name"], start=i18n.date(sim["d1"], mloc), end=i18n.date(sim["d2"], mloc), n=n),
+                 i18n.t("mail.absence_end", mloc, old=i18n.date(old_end, mloc), new=i18n.date(new_end, mloc))]
+        notify._send(pid, "absence", "mail.subject.absence", lines, f"/app/p/{pid}/gantt", member_ids=[sim["member"]["id"]],
+                     user_id=user["id"], name=sim["member"]["name"])
+    except Exception as e:  # pragma: no cover
+        print("notify failed", e)
+    _check(pid)
+    return JSONResponse({"ok": True, "moved": n})
+
+
+# ---------------------------------------------------------------- meeting notes -> tasks
+
+def _current_phase(data) -> str:
+    today = data["metrics"]["today"]
+    act = [t for t in data["tasks"] if t["start"] <= today and t["progress"] < 100 and not t["milestone"]]
+    return (min(act, key=lambda t: t["start"])["phase_code"] if act else (data["phases"][-1]["code"] if data["phases"] else "build"))
+
+
+@project_page
+async def p_notes(request, user, loc, pid, data):
+    return page(request, "notes.html", user, loc, pid=pid, active="notes", d=data, phases=data["phases"],
+                engine="claude" if ai.available() else ("rules+model" if ml.available() else "rules"))
+
+
+async def api_notes_parse(request: Request):
+    user = current_user(request)
+    if not user:
+        return jerr("auth", 401)
+    pid = int(request.path_params["pid"])
+    if not owned_project(user, pid):
+        return jerr("not found", 404)
+    b = await body(request)
+    text = str(b.get("text", ""))[:20000]
+    loc = locale_of(request, user)
+    if len(text.strip()) < 5:
+        return jerr(i18n.t("notes.empty", loc))
+    data = A.load(pid, loc)
+    items, engine = NOTES.extract(text, data["members"], db.today(), loc, _current_phase(data))
+    return JSONResponse({"items": items, "engine": engine})
+
+
+async def api_notes_create(request: Request):
+    user = current_user(request)
+    if not user:
+        return jerr("auth", 401)
+    pid = int(request.path_params["pid"])
+    if not owned_project(user, pid):
+        return jerr("not found", 404)
+    b = await body(request)
+    items = b.get("items") if isinstance(b.get("items"), list) else []
+    members = {m["id"] for m in db.q("SELECT id FROM members WHERE project_id=?", (pid,))}
+    created = []
+    for it in items[:60]:
+        if not isinstance(it, dict) or not str(it.get("title", "")).strip():
+            continue
+        start = planner.next_workday(db.today())
+        end = _date_param(it.get("deadline"), planner.add_workdays(start, 2))
+        if end < start:
+            end = start
+        aid = int(it["owner_id"]) if str(it.get("owner_id", "")).isdigit() and int(it["owner_id"]) in members else None
+        prio = it.get("priority") if it.get("priority") in ("low", "medium", "high", "critical") else "medium"
+        phase = it.get("phase") if it.get("phase") in L.PHASES else "build"
+        tid = planner.insert_task(pid, phase, str(it["title"]).strip(), start, end, aid, prio)
+        db.ex("INSERT INTO activity(project_id,user_id,at,kind,task_id,new_value) VALUES(?,?,?,?,?,?)",
+              (pid, user["id"], db.now(), "notes_task", tid, "notes"))
+        created.append(tid)
+        if aid:
+            try:
+                notify.task_assigned(pid, tid, None, user["id"])
+            except Exception as e:  # pragma: no cover
+                print("notify failed", e)
+    _check(pid)
+    return JSONResponse({"ok": True, "created": len(created), "url": f"/app/p/{pid}/tasks"})
+
+
+# ---------------------------------------------------------------- client share link (read-only)
+
+def _link_state(row) -> str:
+    if row["revoked_at"]:
+        return "revoked"
+    if row["expires_at"] and row["expires_at"] < db.now():
+        return "expired"
+    return "active"
+
+
+@project_page
+async def p_client(request, user, loc, pid, data):
+    links = []
+    for r in db.q("SELECT * FROM client_links WHERE project_id=? ORDER BY id DESC", (pid,)):
+        views = db.q("SELECT * FROM client_link_views WHERE link_id=? ORDER BY id DESC LIMIT 20", (r["id"],))
+        n = db.q1("SELECT COUNT(*) n FROM client_link_views WHERE link_id=?", (r["id"],))["n"]
+        links.append(dict(row=r, state=_link_state(r), url=f"{_base_url(request)}/c/{r['token']}", views=views, n=n))
+    return page(request, "client.html", user, loc, pid=pid, active="home", d=data, links=links)
+
+
+async def api_client_link(request: Request):
+    user = current_user(request)
+    if not user:
+        return jerr("auth", 401)
+    pid = int(request.path_params["pid"])
+    if not owned_project(user, pid):
+        return jerr("not found", 404)
+    b = await body(request)
+    if b.get("revoke"):
+        db.ex("UPDATE client_links SET revoked_at=? WHERE id=? AND project_id=?", (db.now(), int(b["revoke"]), pid))
+        return JSONResponse({"ok": True})
+    days = int(b.get("days") or 30)
+    exp = None if days <= 0 else (dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=min(days, 365))).replace(microsecond=0).isoformat()
+    tok = secrets.token_urlsafe(24)
+    db.ex("INSERT INTO client_links(project_id,token,label,created_by,created_at,expires_at) VALUES(?,?,?,?,?,?)",
+          (pid, tok, str(b.get("label", ""))[:80], user["id"], db.now(), exp))
+    return JSONResponse({"ok": True, "url": f"{_base_url(request)}/c/{tok}"})
+
+
+async def client_view(request: Request):
+    tok = request.path_params["token"]
+    row = db.q1("SELECT * FROM client_links WHERE token=?", (tok,))
+    loc = locale_of(request, None)
+    if not row or _link_state(row) != "active":
+        resp = page(request, "client_view.html", None, loc, gone=True)
+        resp.status_code = 404
+        return resp
+    ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "")).split(",")[0].strip()
+    visitor = hashlib.sha256((SECRET[:16] + ip).encode()).hexdigest()[:10]  # pseudonymous: no raw IP stored
+    db.ex("INSERT INTO client_link_views(link_id,at,visitor,agent) VALUES(?,?,?,?)",
+          (row["id"], db.now(), visitor, (request.headers.get("user-agent") or "")[:120]))
+    data = A.load(row["project_id"], loc)
+    ms = [t for t in data["tasks"] if t["milestone"]]
+    return page(request, "client_view.html", None, loc, gone=False, d=data, m=data["metrics"], v=data["verdict"], milestones=ms,
+                gantt=charts.gantt(data, loc, "week"), legend=charts.gantt_legend(loc), token=tok)
+
+
+# ---------------------------------------------------------------- import existing projects
+
+@login_required
+async def import_page(request: Request, user):
+    loc = locale_of(request, user)
+    imp = None
+    iid = request.query_params.get("id")
+    if iid and iid.isdigit():
+        imp = db.q1("SELECT * FROM imports WHERE id=? AND user_id=?", (int(iid), user["id"]))
+    ctx = dict(active="projects", imp=None, fields=IMP.FIELDS)
+    if imp:
+        cols = json.loads(imp["columns_json"])
+        rows = json.loads(imp["rows_json"])
+        mp = {f: request.query_params.get("m_" + f) for f in IMP.FIELDS if request.query_params.get("m_" + f) in cols}
+        if not any(request.query_params.get("m_" + f) is not None for f in IMP.FIELDS):
+            mp = IMP.guess_mapping(cols, imp["source"])
+        items, errors = IMP.validate(rows, mp, db.today()) if mp.get("title") else ([], [])
+        for it in items[:200]:
+            it["phase"] = IMP.phase_for(it["group"], it["title"])
+        ctx.update(imp=imp, cols=cols, sample=rows[:5], mapping=mp, items=items, errors=errors, n_rows=len(rows),
+                   proj_name=request.query_params.get("name") or imp["filename"].rsplit(".", 1)[0])
+    return page(request, "import.html", user, loc, **ctx)
+
+
+async def api_import_upload(request: Request):
+    user = current_user(request)
+    if not user:
+        return jerr("auth", 401)
+    loc = locale_of(request, user)
+    form = await request.form()
+    f = form.get("file")
+    if f is None or not getattr(f, "filename", ""):
+        return jerr(i18n.t("imp.err.nofile", loc))
+    raw = await f.read()
+    try:
+        parsed = IMP.parse_file(f.filename, raw)
+    except ValueError as e:
+        return jerr(i18n.t(str(e), loc) if str(e).startswith("imp.") else i18n.t("imp.err.read", loc))
+    except Exception:
+        return jerr(i18n.t("imp.err.read", loc))
+    db.ex("DELETE FROM imports WHERE user_id=?", (user["id"],))
+    iid = db.ex("INSERT INTO imports(user_id,created_at,filename,source,columns_json,rows_json) VALUES(?,?,?,?,?,?)",
+                (user["id"], db.now(), (parsed["name"] or f.filename)[:120], parsed["source"], json.dumps(parsed["columns"], ensure_ascii=False),
+                 json.dumps(parsed["rows"], ensure_ascii=False)))
+    return JSONResponse({"ok": True, "url": f"/app/import?id={iid}", "source": parsed["source"], "rows": len(parsed["rows"])})
+
+
+async def api_import_create(request: Request):
+    user = current_user(request)
+    if not user:
+        return jerr("auth", 401)
+    loc = locale_of(request, user)
+    b = await body(request)
+    imp = db.q1("SELECT * FROM imports WHERE id=? AND user_id=?", (int(b.get("id") or 0), user["id"]))
+    if not imp:
+        return jerr("not found", 404)
+    cols = json.loads(imp["columns_json"])
+    mp = {f: b.get("m_" + f) for f in IMP.FIELDS if b.get("m_" + f) in cols}
+    if not mp.get("title"):
+        return jerr(i18n.t("imp.err.map_title", loc))
+    items, errors = IMP.validate(json.loads(imp["rows_json"]), mp, db.today())
+    if not items:
+        return jerr(i18n.t("imp.err.empty", loc))
+    currency = b.get("currency") if b.get("currency") in i18n.CURRENCIES else "EUR"
+    try:
+        budget = max(0.0, float(b.get("budget") or 0))
+    except ValueError:
+        budget = 0.0
+    pid = IMP.create(user["id"], str(b.get("name") or imp["filename"])[:120], items, budget=budget, currency=currency, locale=loc)
+    db.ex("DELETE FROM imports WHERE id=?", (imp["id"],))
+    db.ex("UPDATE users SET current_project_id=? WHERE id=?", (pid, user["id"]))
+    _check(pid, send=False)
+    return JSONResponse({"ok": True, "url": f"/app/p/{pid}/home?imported={len(items)}", "skipped": len(errors)})
+
+
+async def import_template(request: Request):
+    ext = request.path_params["ext"]
+    if ext == "csv":
+        return _attach(IMP.template_csv(), "missionpilot_import_template.csv", "text/csv")
+    if ext == "xlsx":
+        return _attach(IMP.template_xlsx(), "missionpilot_import_template.xlsx",
+                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return PlainTextResponse("Not found", 404)
+
+
+# ---------------------------------------------------------------- e-mail: test, weekly report now, scheduled jobs
+
+async def api_test_email(request: Request):
+    user = current_user(request)
+    if not user:
+        return jerr("auth", 401)
+    loc = locale_of(request, user)
+    notify.set_base_url(_base_url(request))
+    lid = notify.test_email(user, loc)
+    row = db.q1("SELECT * FROM email_log WHERE id=?", (lid,))
+    return JSONResponse({"ok": row["status"] in ("queued", "sent"), "status": row["status"], "error": row["error"],
+                         "message": i18n.t(f"mail.st.{row['status']}", loc)})
+
+
+async def api_weekly_now(request: Request):
+    user = current_user(request)
+    if not user:
+        return jerr("auth", 401)
+    pid = int(request.path_params["pid"])
+    if not owned_project(user, pid):
+        return jerr("not found", 404)
+    loc = locale_of(request, user)
+    notify.set_base_url(_base_url(request))
+    lid = await notify.weekly_report(pid, user_id=user["id"])
+    row = db.q1("SELECT * FROM email_log WHERE id=?", (lid,)) if lid else None
+    st = row["status"] if row else "failed"
+    return JSONResponse({"ok": st in ("queued", "sent"), "status": st, "error": row["error"] if row else None,
+                         "message": i18n.t(f"mail.st.{st}", loc), "to": row["recipients"] if row else ""})
+
+
+def purge_demos():
+    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=24)).isoformat()
+    db.ex("DELETE FROM users WHERE is_demo=1 AND created_at<?", (cutoff,))
+    db.ex("DELETE FROM email_log WHERE created_at<?", ((dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=60)).isoformat(),))
+
+
+async def api_cron(request: Request):
+    """Called by the scheduled GitHub Action (or any cron service). If CRON_SECRET is set, the X-Cron-Key header must match."""
+    if CRON_SECRET and not hmac.compare_digest(request.headers.get("x-cron-key", ""), CRON_SECRET):
+        return jerr("forbidden", 403)
+    job = request.path_params["job"]
+    if job == "daily":
+        purge_demos()
+        n = 0
+        for p in db.q("SELECT p.id FROM projects p JOIN users u ON u.id=p.owner_id WHERE u.is_demo=0 AND p.status='active'"):
+            _check(p["id"])
+            n += 1
+        return JSONResponse({"ok": True, "projects_checked": n})
+    if job == "weekly":
+        return JSONResponse({"ok": True, **(await notify.weekly_all(force=request.query_params.get("force") == "1" and bool(CRON_SECRET)))})
+    return jerr("unknown job", 404)
+
+
 # ---------------------------------------------------------------- app
 
 class SameOriginPost(BaseHTTPMiddleware):
@@ -1036,6 +1420,16 @@ routes = [
     Route("/app/p/{pid:int}/progress", p_progress), Route("/app/p/{pid:int}/budget", p_budget), Route("/app/p/{pid:int}/risks", p_risks),
     Route("/app/p/{pid:int}/team", p_team), Route("/app/p/{pid:int}/reports", p_reports),
     Route("/app/p/{pid:int}/documents", p_documents), Route("/app/p/{pid:int}/assistant", p_assistant),
+    Route("/app/p/{pid:int}/whatif", p_whatif), Route("/app/p/{pid:int}/notes", p_notes), Route("/app/p/{pid:int}/client", p_client),
+    Route("/app/import", import_page), Route("/c/{token}", client_view), Route("/files/import-template.{ext}", import_template),
+    Route("/api/projects/{pid:int}/whatif", api_whatif_apply, methods=["POST"]),
+    Route("/api/projects/{pid:int}/notes/parse", api_notes_parse, methods=["POST"]),
+    Route("/api/projects/{pid:int}/notes/create", api_notes_create, methods=["POST"]),
+    Route("/api/projects/{pid:int}/client-link", api_client_link, methods=["POST"]),
+    Route("/api/projects/{pid:int}/weekly-now", api_weekly_now, methods=["POST"]),
+    Route("/api/import/upload", api_import_upload, methods=["POST"]), Route("/api/import/create", api_import_create, methods=["POST"]),
+    Route("/api/settings/test-email", api_test_email, methods=["POST"]),
+    Route("/api/cron/{job}", api_cron, methods=["GET", "POST"]),
     Route("/app/doc/{doc_id:int}", doc_view),
     Route("/files/doc/{doc_id:int}.{ext}", doc_file), Route("/files/p/{pid:int}/{name}", project_file),
     Route("/s/{token}", shared),

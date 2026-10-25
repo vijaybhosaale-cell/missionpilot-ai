@@ -2,7 +2,7 @@
 {% from "_macros.html" import icon, header %}
 {% block title %}{{ t('nav.assistant') }}{% endblock %}
 {% block content %}
-{% call header(11, t('nav.assistant'), t('assistant.desc')) %}
+{% call header(13, t('nav.assistant'), t('assistant.desc')) %}
   <label class="small muted" for="out-lang">{{ t('assistant.reply_in') }}</label>
   <select id="out-lang">{% for c, n in locales %}<option value="{{ c }}" {{ 'selected' if c == out_loc else '' }}>{{ n }}</option>{% endfor %}</select>
 {% endcall %}

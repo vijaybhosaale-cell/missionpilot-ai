@@ -1,0 +1,33 @@
+# Free scheduled jobs for the Render site (GitHub Actions, public repo = free).
+#  - keep-alive : opens /healthz every 10 minutes so the free Render service does not fall asleep
+#                 (on the free plan the database is reset when the service sleeps or restarts)
+#  - daily      : 07:15 UTC — risk engine + overdue / overload e-mails for every real project, removes old demos
+#  - weekly     : Monday 06:05 and 07:05 UTC — the site sends the weekly report only once Monday 08:00 Paris time
+#                 has passed (summer and winter time), and never twice in the same week.
+# Optional settings (GitHub repo → Settings → Secrets and variables → Actions):
+#   variable MP_URL         default https://missionpilot-ai.onrender.com
+#   secret   MP_CRON_SECRET same value as CRON_SECRET on Render (only if you set one there)
+name: scheduled-jobs
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+    - cron: "15 7 * * *"
+    - cron: "5 6 * * 1"
+    - cron: "5 7 * * 1"
+  workflow_dispatch:
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      URL: ${{ vars.MP_URL || 'https://missionpilot-ai.onrender.com' }}
+      KEY: ${{ secrets.MP_CRON_SECRET }}
+    steps:
+      - name: Wake up / keep alive
+        run: curl -fsS --retry 6 --retry-delay 20 --retry-all-errors --max-time 120 "$URL/healthz"
+      - name: Daily checks
+        if: github.event.schedule == '15 7 * * *'
+        run: curl -fsS --max-time 180 -X POST -H "X-Cron-Key: $KEY" "$URL/api/cron/daily"
+      - name: Weekly report
+        if: github.event.schedule == '5 6 * * 1' || github.event.schedule == '5 7 * * 1'
+        run: curl -fsS --max-time 300 -X POST -H "X-Cron-Key: $KEY" "$URL/api/cron/weekly"

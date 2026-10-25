@@ -1,0 +1,50 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header %}
+{% block title %}{{ t('imp.title') }}{% endblock %}
+{% block content %}
+{% call header(0, t('imp.title'), t('imp.desc')) %}<a class="btn sm" href="/app/projects">← {{ t('nav.projects') }}</a>{% endcall %}
+<div class="card" id="imp-upload">
+  <h2>1. {{ t('imp.step1') }}</h2>
+  <p class="muted small" style="margin-top:-6px">{{ t('imp.formats') }}</p>
+  <input type="file" id="imp-file" accept=".xlsx,.csv,.json,.txt">
+  <div class="actions" style="margin-top:10px"><button class="btn primary" onclick="MPapp.importUpload()" id="btn-imp-upload">{{ icon('upload') }}{{ t('imp.upload') }}</button>
+    <a class="btn sm" href="/files/import-template.xlsx">{{ icon('xls') }}{{ t('imp.tpl_xlsx') }}</a>
+    <a class="btn sm" href="/files/import-template.csv">{{ icon('doc') }}{{ t('imp.tpl_csv') }}</a></div>
+  <details style="margin-top:10px"><summary class="small">{{ t('imp.how_export') }}</summary>
+    <ul class="small"><li>{{ t('imp.how_trello') }}</li><li>{{ t('imp.how_jira') }}</li><li>{{ t('imp.how_excel') }}</li></ul></details>
+</div>
+{% if imp %}
+<form class="card" method="get" id="imp-map">
+  <input type="hidden" name="id" value="{{ imp.id }}">
+  <h2>2. {{ t('imp.step2') }} <span class="muted">{{ t('imp.source.' ~ imp.source) }} · {{ t('imp.rows', n=n_rows) }}</span></h2>
+  <div class="form-row" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
+    {% for f in fields %}<div><label class="f" for="m_{{ f }}">{{ t('imp.f.' ~ f) }}{% if f == 'title' %} *{% endif %}</label>
+      <select id="m_{{ f }}" name="m_{{ f }}" style="width:100%"><option value="">— {{ t('imp.ignore') }} —</option>
+      {% for c in cols %}<option value="{{ c }}" {{ 'selected' if mapping.get(f) == c else '' }}>{{ c }}</option>{% endfor %}</select></div>{% endfor %}
+  </div>
+  <div class="form-row" style="margin-top:10px">
+    <div><label class="f" for="imp-name">{{ t('imp.name') }}</label><input id="imp-name" name="name" type="text" value="{{ proj_name }}" style="width:100%"></div>
+    <div><label class="f" for="imp-budget">{{ t('imp.budget') }}</label><input id="imp-budget" type="number" min="0" step="100" value="0" style="width:100%"></div>
+    <div><label class="f" for="imp-cur">{{ t('imp.currency') }}</label><select id="imp-cur" style="width:100%">{% for c in i18n.CURRENCIES %}<option {{ 'selected' if c == info.currency else '' }}>{{ c }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="actions" style="margin-top:12px"><button class="btn">{{ t('imp.check') }}</button></div>
+  <h3 style="font-size:14px;margin:14px 0 6px">{{ t('imp.sample') }}</h3>
+  <div class="tbl-wrap"><table class="tbl small"><thead><tr>{% for c in cols %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for r in sample %}<tr>{% for c in cols %}<td>{{ r[c] }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+</form>
+<div class="card" id="imp-preview">
+  <h2>3. {{ t('imp.step3') }}</h2>
+  {% if not mapping.get('title') %}<p class="muted">{{ t('imp.err.map_title') }}</p>
+  {% else %}
+  <p>{{ t('imp.ready', n=items|length) }}{% if errors %} <b style="color:var(--red)">{{ t('imp.n_errors', n=errors|length) }}</b>{% endif %}</p>
+  {% if errors %}<div class="imp-errors"><ul class="small">{% for row, key, val in errors[:30] %}<li>{{ t('imp.row', n=row) }}: {{ t(key) }}{% if val %} <code>{{ val }}</code>{% endif %}</li>{% endfor %}</ul></div>{% endif %}
+  <div class="tbl-wrap"><table class="tbl small"><thead><tr><th>#</th><th>{{ t('imp.f.title') }}</th><th>{{ t('notes.phase') }}</th><th>{{ t('imp.f.assignee') }}</th><th>{{ t('imp.f.start') }}</th><th>{{ t('imp.f.end') }}</th><th class="num">%</th><th>{{ t('doc.c.status') }}</th><th>{{ t('doc.c.priority') }}</th></tr></thead>
+    <tbody>{% for it in items[:200] %}<tr><td class="muted">{{ it.row }}</td><td>{{ it.title }}</td><td class="nowrap">{{ t('phase.' ~ it.phase) }}{% if it.group %} <span class="muted">({{ it.group }})</span>{% endif %}</td><td>{{ it.assignee or '—' }}</td>
+      <td class="nowrap">{{ i18n.short_date(it.start, L) }}</td><td class="nowrap">{{ i18n.short_date(it.end, L) }}{% if it.dates_guessed %} <span class="muted" title="{{ t('imp.guessed') }}">*</span>{% endif %}</td>
+      <td class="num">{{ it.progress }}</td><td>{{ t('status.' ~ it.status) }}</td><td>{{ t('priority.' ~ it.priority) }}</td></tr>{% endfor %}</tbody></table></div>
+  <p class="muted small">{{ t('imp.phase_note') }}</p>
+  <div class="actions" style="margin-top:12px"><button class="btn primary" onclick="MPapp.importCreate({{ imp.id }})" id="btn-imp-create" {{ 'disabled' if not items else '' }}>{{ t('imp.create', n=items|length) }}</button></div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

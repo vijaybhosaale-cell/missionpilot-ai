@@ -1,0 +1,30 @@
+{% extends "base_app.html" %}
+{% from "_macros.html" import icon, header %}
+{% block title %}{{ t('nav.notes') }}{% endblock %}
+{% block content %}
+{% call header(10, t('nav.notes'), t('notes.desc')) %}{% endcall %}
+<div class="card" id="notes-card">
+  <label class="f" for="notes-text">{{ t('notes.paste') }}</label>
+  <textarea id="notes-text" rows="10" style="width:100%" placeholder="{{ t('notes.placeholder') }}"></textarea>
+  <div class="actions" style="margin-top:10px">
+    <button class="btn primary" onclick="MPnotes.parse()" id="btn-notes-parse">✦ {{ t('notes.extract') }}</button>
+    <button class="btn sm" onclick="MPnotes.example()">{{ t('notes.example_btn') }}</button>
+    <span class="muted small">{{ t('notes.engine_' ~ engine.replace('+', '_')) }}</span>
+  </div>
+</div>
+<div class="card" id="notes-preview" hidden>
+  <h2>{{ t('notes.preview') }} <span class="muted">{{ t('notes.preview_help') }}</span></h2>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>✓</th><th>{{ t('gantt.col_task') }}</th><th>{{ t('notes.owner') }}</th><th>{{ t('notes.deadline') }}</th><th>{{ t('doc.c.priority') }}</th><th>{{ t('notes.phase') }}</th></tr></thead>
+    <tbody id="notes-rows"></tbody>
+  </table></div>
+  <div class="actions" style="margin-top:12px"><button class="btn primary" onclick="MPnotes.create()" id="btn-notes-create">{{ t('notes.create') }}</button>
+    <span class="muted small" id="notes-count"></span></div>
+</div>
+<script>
+window.MPNOTES = {{ dict(members=d.members|map(attribute='id')|list, names=d.members|map(attribute='name')|list,
+  phases=phases|map(attribute='code')|list, phase_names=phases|map(attribute='name')|list,
+  prios=['critical','high','medium','low'], prio_names=[t('priority.critical'),t('priority.high'),t('priority.medium'),t('priority.low')],
+  none=t('notes.nobody'), example=t('notes.example'), created=t('notes.created'), nothing=t('notes.nothing'), count=t('notes.count'))|tojson }};
+</script>
+{% endblock %}
