@@ -1,0 +1,37 @@
+name: fetch-ml-assets
+on:
+  push:
+    branches: [ml-assets]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install numpy safetensors huggingface_hub tokenizers
+      - run: python scripts/build_model.py app/models > build_log.txt 2>&1 || true
+      - run: |
+          mkdir -p wheels
+          pip download tokenizers --only-binary=:all: --python-version 3.13 --platform manylinux_2_17_x86_64 --no-deps -d wheels >> build_log.txt 2>&1 || true
+          python - >> build_log.txt 2>&1 <<'PY' || true
+          import numpy as np, json
+          from tokenizers import Tokenizer
+          tok = Tokenizer.from_file("app/models/tokenizer.json")
+          E = np.load("app/models/static_mrl_multilingual_128.npy").astype("float32")
+          def emb(s):
+              ids = tok.encode(s, add_special_tokens=False).ids
+              v = E[ids].mean(0); return v / (np.linalg.norm(v) + 1e-9)
+          pairs = [("Tasks take longer than planned", "Schedule delay"), ("Tasks take longer than planned", "Personal data leak"),
+                   ("Les coûts dépassent le budget", "Costs exceed the budget"), ("खर्च बजेटपेक्षा जास्त होतो", "Costs exceed the budget")]
+          for a, b in pairs: print("SIM", a, "|", b, float(emb(a) @ emb(b)))
+          PY
+      - run: |
+          git config user.name "ml-assets-bot"
+          git config user.email "ml-assets-bot@users.noreply.github.com"
+          git add -A app/models wheels build_log.txt
+          git commit -m "ML assets [skip ci]" || echo nothing
+          git push
